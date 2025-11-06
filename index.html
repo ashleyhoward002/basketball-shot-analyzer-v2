@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Basketball Shot Analyzer v2.0 | Train Like a Pro</title>
+    <title>Basketball Shot Analyzer v2.0</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -14,37 +14,34 @@
             <p class="subtitle">Train Like a Pro - Perfect Your Shot!</p>
         </header>
 
-        <!-- How to Use Panel (Always Visible) -->
+        <!-- How to Use Panel -->
         <div class="instructions-panel">
-            <h3>📋 How to Use (Easy 4 Steps!)</h3>
+            <h3>📋 Quick Start Guide</h3>
             <div class="instructions-grid">
                 <div class="instruction-step">
                     <span class="step-number">1</span>
-                    <p><strong>Stand Back</strong><br>6-8 feet from camera</p>
+                    <p><strong>Stand Back</strong><br>6-8 feet from camera<br>Full body visible</p>
                 </div>
                 <div class="instruction-step">
                     <span class="step-number">2</span>
-                    <p><strong>Full Body Visible</strong><br>Head to feet in frame</p>
+                    <p><strong>Click Start</strong><br>Allow camera access<br>AI will track you</p>
                 </div>
                 <div class="instruction-step">
                     <span class="step-number">3</span>
-                    <p><strong>Click Start</strong><br>Allow camera access</p>
+                    <p><strong>Practice Shots</strong><br>Watch your scores<br>Auto-captures shots</p>
                 </div>
                 <div class="instruction-step">
                     <span class="step-number">4</span>
-                    <p><strong>Practice!</strong><br>Watch your scores improve</p>
+                    <p><strong>Try Filters</strong><br>Press E, C, B, or S<br>See your form better</p>
                 </div>
-            </div>
-            <div class="pro-tips">
-                <strong>💡 Pro Tips:</strong> Good lighting helps tracking • Try filters with keyboard (E=Edges, X=X-Ray) • Press SPACE to save a shot
             </div>
         </div>
 
-        <!-- Main Content - Side by Side Layout -->
+        <!-- Main Content -->
         <main class="main-layout">
-            <!-- LEFT: Video + Metrics Together -->
-            <div class="video-metrics-panel">
-                <!-- Video Section -->
+            <!-- LEFT: Video + Live Metrics -->
+            <div class="video-metrics-section">
+                <!-- Video Container -->
                 <div class="video-container">
                     <div class="video-wrapper">
                         <video id="webcam" autoplay playsinline></video>
@@ -56,16 +53,18 @@
                             <p>Loading AI Coach...</p>
                         </div>
 
-                        <!-- Filter Name Badge -->
-                        <div id="filter-mode" class="filter-badge">
+                        <!-- Filter Badge -->
+                        <div id="filter-badge" class="filter-badge">
                             <span id="filter-name">👁️ Normal View</span>
+                            <span class="filter-hint">Press keys to change</span>
                         </div>
 
-                        <!-- Shot Captured Flash -->
+                        <!-- Shot Flash -->
                         <div id="shot-flash" class="shot-flash hidden">
                             <div class="flash-content">
                                 <h2>📸 SHOT CAPTURED!</h2>
-                                <p id="shot-number">Shot 1/10</p>
+                                <p id="shot-number-display">Shot 1/10</p>
+                                <p class="flash-score">Score: <span id="flash-score-val">85</span></p>
                             </div>
                         </div>
 
@@ -77,7 +76,7 @@
                         <!-- Status -->
                         <div id="status-indicator" class="status-indicator">
                             <span class="status-dot"></span>
-                            <span id="status-text">Ready to Start!</span>
+                            <span id="status-text">Ready!</span>
                         </div>
                     </div>
 
@@ -95,69 +94,70 @@
                     </div>
                 </div>
 
-                <!-- Live Metrics (Right next to video) -->
-                <div class="live-metrics">
-                    <h3>📊 Your Form Score</h3>
-                    
-                    <!-- Big Score Display -->
-                    <div class="score-display-large">
-                        <div class="score-circle-large">
-                            <svg width="140" height="140">
-                                <circle class="score-ring-bg" cx="70" cy="70" r="60" />
-                                <circle class="score-ring-fill" id="score-ring" cx="70" cy="70" r="60" />
+                <!-- Live Metrics (Below Video) -->
+                <div class="live-metrics-horizontal">
+                    <div class="score-section">
+                        <h3>Your Score</h3>
+                        <div class="score-circle-inline">
+                            <svg width="100" height="100">
+                                <circle class="score-ring-bg" cx="50" cy="50" r="42" />
+                                <circle class="score-ring-fill" id="score-ring" cx="50" cy="50" r="42" />
                             </svg>
-                            <div class="score-text-large">
-                                <span id="overall-score" class="score-number-large">--</span>
-                                <span class="score-label-large">/100</span>
+                            <div class="score-text-inline">
+                                <span id="overall-score">--</span>
                             </div>
                         </div>
-                        <p id="form-feedback" class="feedback-large">
-                            Get in position to see your score!
-                        </p>
+                        <p id="form-feedback" class="feedback-text">Get in position!</p>
                     </div>
 
-                    <!-- Quick Metrics -->
-                    <div class="quick-metrics">
-                        <div class="quick-metric">
+                    <div class="metrics-grid-inline">
+                        <div class="metric-inline">
                             <span class="metric-icon">💪</span>
-                            <span class="metric-label">Elbow</span>
-                            <span id="elbow-angle" class="metric-value-quick">--°</span>
-                            <div class="metric-mini-bar">
-                                <div id="elbow-bar" class="mini-bar-fill"></div>
+                            <div class="metric-info">
+                                <span class="metric-label">Elbow</span>
+                                <span id="elbow-angle" class="metric-value">--°</span>
+                                <div class="metric-bar-mini">
+                                    <div id="elbow-bar" class="bar-fill"></div>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="quick-metric">
+                        <div class="metric-inline">
                             <span class="metric-icon">🎯</span>
-                            <span class="metric-label">Release</span>
-                            <span id="release-height" class="metric-value-quick">--°</span>
-                            <div class="metric-mini-bar">
-                                <div id="release-bar" class="mini-bar-fill"></div>
+                            <div class="metric-info">
+                                <span class="metric-label">Release</span>
+                                <span id="release-height" class="metric-value">--°</span>
+                                <div class="metric-bar-mini">
+                                    <div id="release-bar" class="bar-fill"></div>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="quick-metric">
+                        <div class="metric-inline">
                             <span class="metric-icon">🦵</span>
-                            <span class="metric-label">Knees</span>
-                            <span id="knee-angle" class="metric-value-quick">--°</span>
-                            <div class="metric-mini-bar">
-                                <div id="knee-bar" class="mini-bar-fill"></div>
+                            <div class="metric-info">
+                                <span class="metric-label">Knees</span>
+                                <span id="knee-angle" class="metric-value">--°</span>
+                                <div class="metric-bar-mini">
+                                    <div id="knee-bar" class="bar-fill"></div>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="quick-metric">
+                        <div class="metric-inline">
                             <span class="metric-icon">📐</span>
-                            <span class="metric-label">Balance</span>
-                            <span id="alignment-score" class="metric-value-quick">--</span>
-                            <div class="metric-mini-bar">
-                                <div id="alignment-bar" class="mini-bar-fill"></div>
+                            <div class="metric-info">
+                                <span class="metric-label">Balance</span>
+                                <span id="alignment-score" class="metric-value">--</span>
+                                <div class="metric-bar-mini">
+                                    <div id="alignment-bar" class="bar-fill"></div>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- What to Improve -->
-                    <div class="improvement-tips">
-                        <h4>💡 Focus On:</h4>
+                    <div class="tips-inline">
+                        <h4>💡 What to Improve:</h4>
                         <ul id="improvement-list">
                             <li>Start shooting to get feedback!</li>
                         </ul>
@@ -166,104 +166,105 @@
             </div>
 
             <!-- RIGHT: Filters + Progress -->
-            <div class="sidebar-panel">
-                <!-- Filter Controls -->
-                <div class="filter-panel">
-                    <h3>🎨 View Modes</h3>
-                    <p class="filter-help">Try different views to see your form better!</p>
+            <div class="sidebar">
+                <!-- Filter Panel -->
+                <div class="panel">
+                    <h3>🎨 View Modes (Live Filters)</h3>
+                    <p class="panel-desc">These filters apply to your live video in real-time!</p>
                     
-                    <div class="filter-buttons">
-                        <button class="filter-btn-simple active" data-filter="normal" title="Normal camera view">
-                            <span class="filter-emoji">👁️</span>
-                            <span>Normal</span>
+                    <div class="filter-buttons-compact">
+                        <button class="filter-btn-compact active" data-filter="normal">
+                            <span class="filter-emoji-lg">👁️</span>
+                            <span class="filter-name-text">Normal</span>
                             <kbd>N</kbd>
                         </button>
                         
-                        <button class="filter-btn-simple" data-filter="sobel" title="See body outlines">
-                            <span class="filter-emoji">📐</span>
-                            <span>Outline</span>
+                        <button class="filter-btn-compact" data-filter="sobel">
+                            <span class="filter-emoji-lg">📐</span>
+                            <span class="filter-name-text">Sobel Edges</span>
                             <kbd>E</kbd>
                         </button>
                         
-                        <button class="filter-btn-simple" data-filter="canny" title="Clean edge view">
-                            <span class="filter-emoji">✨</span>
-                            <span>Edges</span>
+                        <button class="filter-btn-compact" data-filter="canny">
+                            <span class="filter-emoji-lg">✨</span>
+                            <span class="filter-name-text">Canny Edges</span>
                             <kbd>C</kbd>
                         </button>
                         
-                        <button class="filter-btn-simple" data-filter="xray" title="Cool skeleton view!">
-                            <span class="filter-emoji">🦴</span>
-                            <span>X-Ray</span>
-                            <kbd>X</kbd>
-                        </button>
-                        
-                        <button class="filter-btn-simple" data-filter="blur" title="Smooth view">
-                            <span class="filter-emoji">🌫️</span>
-                            <span>Blur</span>
+                        <button class="filter-btn-compact" data-filter="blur">
+                            <span class="filter-emoji-lg">🌫️</span>
+                            <span class="filter-name-text">Blur</span>
                             <kbd>B</kbd>
                         </button>
                         
-                        <button class="filter-btn-simple" data-filter="sharpen" title="Sharper image">
-                            <span class="filter-emoji">🔪</span>
-                            <span>Sharp</span>
+                        <button class="filter-btn-compact" data-filter="sharpen">
+                            <span class="filter-emoji-lg">🔪</span>
+                            <span class="filter-name-text">Sharpen</span>
                             <kbd>S</kbd>
                         </button>
                     </div>
+
+                    <div class="filter-help-box">
+                        <strong>💡 How Filters Help:</strong>
+                        <ul>
+                            <li><strong>Sobel/Canny:</strong> See body outlines clearly</li>
+                            <li><strong>Blur:</strong> Smooth motion view</li>
+                            <li><strong>Sharpen:</strong> Enhanced detail</li>
+                        </ul>
+                    </div>
                 </div>
 
-                <!-- Session Progress (Compact) -->
-                <div id="session-panel" class="session-panel hidden">
+                <!-- Session Panel -->
+                <div id="session-panel" class="panel hidden">
                     <h3>🎯 Shot Challenge</h3>
-                    <div class="shots-mini-grid" id="shots-grid">
-                        <!-- Shots appear here -->
-                    </div>
-                    <div class="session-stats-mini">
-                        <div class="stat-mini">
-                            <span class="stat-mini-label">Best</span>
-                            <span id="best-shot" class="stat-mini-value">--</span>
+                    <div class="shots-compact" id="shots-grid"></div>
+                    <div class="session-stats-row">
+                        <div class="stat-compact">
+                            <span class="stat-label-sm">Best</span>
+                            <span id="best-shot" class="stat-value-sm">--</span>
                         </div>
-                        <div class="stat-mini">
-                            <span class="stat-mini-label">Avg</span>
-                            <span id="session-avg" class="stat-mini-value">--</span>
+                        <div class="stat-compact">
+                            <span class="stat-label-sm">Average</span>
+                            <span id="session-avg" class="stat-value-sm">--</span>
                         </div>
                     </div>
-                    <button id="complete-session-btn" class="btn btn-success btn-small" disabled>
+                    <button id="complete-session-btn" class="btn btn-success btn-block" disabled>
                         ✅ Finish Challenge
                     </button>
                 </div>
 
-                <!-- Progress Chart (Compact) -->
-                <div class="progress-panel">
+                <!-- Progress Panel -->
+                <div class="panel">
                     <h3>📈 Your Progress</h3>
-                    <canvas id="progress-chart" height="150"></canvas>
-                    <div class="progress-stats-mini">
-                        <div class="stat-mini">
-                            <span class="stat-mini-label">Today</span>
-                            <span id="sessions-today" class="stat-mini-value">0</span>
+                    <canvas id="progress-chart" height="140"></canvas>
+                    <div class="progress-stats-row">
+                        <div class="stat-compact">
+                            <span class="stat-label-sm">Today</span>
+                            <span id="sessions-today" class="stat-value-sm">0</span>
                         </div>
-                        <div class="stat-mini">
-                            <span class="stat-mini-label">Week</span>
-                            <span id="sessions-week" class="stat-mini-value">0</span>
+                        <div class="stat-compact">
+                            <span class="stat-label-sm">Week</span>
+                            <span id="sessions-week" class="stat-value-sm">0</span>
                         </div>
-                        <div class="stat-mini">
-                            <span class="stat-mini-label">Change</span>
-                            <span id="improvement" class="stat-mini-value improvement">--</span>
+                        <div class="stat-compact">
+                            <span class="stat-label-sm">Change</span>
+                            <span id="improvement" class="stat-value-sm improvement">--</span>
                         </div>
                     </div>
                 </div>
             </div>
         </main>
 
-        <!-- Celebration Overlay -->
+        <!-- Celebration (Simple) -->
         <div id="celebration-overlay" class="celebration-overlay hidden">
             <div class="celebration-bg"></div>
             <div id="confetti-container" class="confetti-container"></div>
-            <div class="celebration-box">
-                <h2 id="celebration-title">🏆 AMAZING! 🏆</h2>
-                <p id="celebration-message">You've got pro-level form!</p>
-                <div class="celebration-score">
-                    <span id="celebration-score">95</span>/100
+            <div class="celebration-content">
+                <h2 class="celebration-title">🎉 AMAZING WORK! 🎉</h2>
+                <div class="celebration-score-big">
+                    <span id="celebration-score">95</span><span class="score-max">/100</span>
                 </div>
+                <p class="celebration-msg" id="celebration-message">You've got pro-level form!</p>
                 <button id="celebration-close" class="btn btn-primary btn-large">
                     Keep Training! 💪
                 </button>
@@ -272,7 +273,7 @@
 
         <!-- Footer -->
         <footer>
-            <p>Powered by AI Computer Vision | Built for Young Athletes</p>
+            <p>Powered by MediaPipe Pose Detection & OpenCV.js | Module 7 Computer Vision Project</p>
         </footer>
     </div>
 
@@ -284,12 +285,12 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <script src="app.js"></script>
     
-    <!-- Sounds -->
+    <!-- Sound -->
     <audio id="capture-sound" preload="auto">
         <source src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" type="audio/mpeg">
     </audio>
-    <audio id="crowd-cheer" preload="auto">
-        <source src="https://assets.mixkit.co/active_storage/sfx/2567/2567-preview.mp3" type="audio/mpeg">
+    <audio id="success-sound" preload="auto">
+        <source src="https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3" type="audio/mpeg">
     </audio>
 </body>
 </html>
