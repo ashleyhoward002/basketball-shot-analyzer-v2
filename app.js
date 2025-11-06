@@ -1,111 +1,85 @@
 /**
- * Basketball Shot Form Analyzer v2.0 - Module 7 Enhanced Edition
- * 
- * This application builds on Module 6 by adding:
- * - Real-time computer vision filters (Sobel, Canny, Blur, Sharpen, Cartoon, X-Ray)
- * - 10-shot session tracking with detailed analysis
- * - Progress tracking over time with charts
- * - Achievement/celebration system with stadium overlay
- * - Interactive parameter controls
- * - Side-by-side comparison mode
- * - Keyboard shortcuts for quick filter switching
- * 
- * Technologies: MediaPipe Pose, OpenCV.js, Chart.js
+ * Basketball Shot Analyzer v2.0 - User-Friendly Edition
+ * Features: Working real-time filters, shot capture feedback, kid-friendly UI
  */
 
-// ==================== DOM ELEMENTS ====================
+// DOM Elements
 const video = document.getElementById('webcam');
 const canvas = document.getElementById('output-canvas');
 const ctx = canvas.getContext('2d');
 const startBtn = document.getElementById('start-btn');
 const sessionBtn = document.getElementById('session-btn');
 const stopBtn = document.getElementById('stop-btn');
-const resetBtn = document.getElementById('reset-btn');
 const loadingOverlay = document.getElementById('loading-overlay');
 const statusText = document.getElementById('status-text');
-const filterModeDisplay = document.getElementById('filter-name');
+const filterNameDisplay = document.getElementById('filter-name');
+const shotFlash = document.getElementById('shot-flash');
+const shotNumber = document.getElementById('shot-number');
 const completeSessionBtn = document.getElementById('complete-session-btn');
 const celebrationOverlay = document.getElementById('celebration-overlay');
 const celebrationClose = document.getElementById('celebration-close');
 
-// ==================== STATE MANAGEMENT ====================
+// State
 let pose;
 let camera;
 let isRunning = false;
 let currentFilter = 'normal';
 let sessionMode = false;
 let capturedShots = [];
-let sessionData = {
-    shots: [],
-    startTime: null,
-    bestShot: 0,
-    worstShot: 100,
-    averageScore: 0
-};
-
-// ==================== OPENCV STATE ====================
 let opencvReady = false;
-let tempMat = null;
 
-// ==================== ANALYSIS DATA ====================
+// Analysis Data
 let frameCount = 0;
 let analysisData = {
     elbowAngles: [],
     releaseHeights: [],
     kneeAngles: [],
-    alignmentScores: [],
-    overallScores: []
+    alignmentScores: []
 };
 
-// ==================== FILTER PARAMETERS ====================
-let filterParams = {
-    cannyT1: 80,
-    cannyT2: 150,
-    blurSize: 5,
-    sharpenIntensity: 1.5
-};
-
-// ==================== PROGRESS TRACKING ====================
+// Progress Data
 let progressData = {
     sessions: [],
-    dailyScores: {},
-    weeklyProgress: []
+    dailyScores: {}
 };
 
-// ==================== CHART INSTANCE ====================
 let progressChart = null;
 
 /**
- * Initialize the application
+ * Initialize Application
  */
 async function initialize() {
+    console.log('🚀 Initializing application...');
+    
     try {
-        statusText.textContent = 'Loading AI Models...';
+        statusText.textContent = 'Loading AI Coach...';
         
-        // Wait for OpenCV to load
+        // Wait for OpenCV
         await waitForOpenCV();
+        console.log('✅ OpenCV loaded');
         
         // Initialize MediaPipe Pose
         await initializePose();
+        console.log('✅ MediaPipe loaded');
         
-        // Load progress data from localStorage
+        // Load progress data
         loadProgressData();
         
-        // Initialize progress chart
+        // Initialize chart
         initializeChart();
         
-        // Set up event listeners
+        // Setup event listeners
         setupEventListeners();
         
-        statusText.textContent = 'Ready';
+        statusText.textContent = 'Ready to Start!';
         loadingOverlay.classList.add('hidden');
         
-        console.log('✅ Application initialized successfully');
+        console.log('✅ App ready!');
         
     } catch (error) {
         console.error('❌ Initialization error:', error);
-        statusText.textContent = 'Error loading application';
-        alert('Failed to load application. Please refresh the page.');
+        statusText.textContent = 'Error - Please refresh';
+        alert('Failed to load. Please refresh the page.');
     }
 }
 
@@ -116,23 +90,30 @@ function waitForOpenCV() {
     return new Promise((resolve) => {
         if (typeof cv !== 'undefined') {
             opencvReady = true;
-            console.log('✅ OpenCV.js loaded');
             resolve();
         } else {
             const checkInterval = setInterval(() => {
                 if (typeof cv !== 'undefined') {
                     opencvReady = true;
-                    console.log('✅ OpenCV.js loaded');
                     clearInterval(checkInterval);
                     resolve();
                 }
             }, 100);
+            
+            // Timeout after 30 seconds
+            setTimeout(() => {
+                clearInterval(checkInterval);
+                if (!opencvReady) {
+                    console.warn('⚠️ OpenCV loading timeout - filters may not work');
+                    resolve(); // Continue anyway
+                }
+            }, 30000);
         }
     });
 }
 
 /**
- * Initialize MediaPipe Pose detection
+ * Initialize MediaPipe Pose
  */
 async function initializePose() {
     pose = new Pose({
@@ -145,7 +126,6 @@ async function initializePose() {
         modelComplexity: 1,
         smoothLandmarks: true,
         enableSegmentation: false,
-        smoothSegmentation: false,
         minDetectionConfidence: 0.5,
         minTrackingConfidence: 0.5
     });
@@ -154,45 +134,21 @@ async function initializePose() {
 }
 
 /**
- * Set up all event listeners
+ * Setup Event Listeners
  */
 function setupEventListeners() {
-    // Button controls
     startBtn.addEventListener('click', startCamera);
     sessionBtn.addEventListener('click', startSession);
     stopBtn.addEventListener('click', stopCamera);
-    resetBtn.addEventListener('click', resetStats);
     completeSessionBtn.addEventListener('click', completeSession);
     celebrationClose.addEventListener('click', closeCelebration);
     
-    // Filter button controls
-    document.querySelectorAll('.filter-btn').forEach(btn => {
+    // Filter buttons
+    document.querySelectorAll('.filter-btn-simple').forEach(btn => {
         btn.addEventListener('click', () => {
             const filter = btn.dataset.filter;
             switchFilter(filter);
         });
-    });
-    
-    // Parameter controls
-    document.getElementById('canny-t1').addEventListener('input', (e) => {
-        filterParams.cannyT1 = parseInt(e.target.value);
-        document.getElementById('canny-t1-val').textContent = filterParams.cannyT1;
-    });
-    
-    document.getElementById('canny-t2').addEventListener('input', (e) => {
-        filterParams.cannyT2 = parseInt(e.target.value);
-        document.getElementById('canny-t2-val').textContent = filterParams.cannyT2;
-    });
-    
-    document.getElementById('blur-size').addEventListener('input', (e) => {
-        filterParams.blurSize = parseInt(e.target.value);
-        document.getElementById('blur-size-val').textContent = filterParams.blurSize;
-        document.getElementById('blur-size-val-2').textContent = filterParams.blurSize;
-    });
-    
-    document.getElementById('sharpen-intensity').addEventListener('input', (e) => {
-        filterParams.sharpenIntensity = parseFloat(e.target.value);
-        document.getElementById('sharpen-val').textContent = filterParams.sharpenIntensity;
     });
     
     // Keyboard controls
@@ -200,7 +156,7 @@ function setupEventListeners() {
 }
 
 /**
- * Handle keyboard shortcuts
+ * Handle Keyboard Shortcuts
  */
 function handleKeyboard(e) {
     if (!isRunning) return;
@@ -223,17 +179,11 @@ function handleKeyboard(e) {
         case 's':
             switchFilter('sharpen');
             break;
-        case 't':
-            switchFilter('cartoon');
-            break;
         case 'x':
             switchFilter('xray');
             break;
-        case 'v':
-            switchFilter('comparison');
-            break;
         case ' ':
-            if (sessionMode) {
+            if (sessionMode && capturedShots.length < 10) {
                 captureShot();
             }
             e.preventDefault();
@@ -242,42 +192,36 @@ function handleKeyboard(e) {
 }
 
 /**
- * Switch between filter modes
+ * Switch Filter Mode
  */
 function switchFilter(filterName) {
     currentFilter = filterName;
-    filterModeDisplay.textContent = getFilterDisplayName(filterName);
+    
+    // Update filter name display
+    const filterNames = {
+        'normal': '👁️ Normal View',
+        'sobel': '📐 Outline View',
+        'canny': '✨ Edge View',
+        'blur': '🌫️ Blur View',
+        'sharpen': '🔪 Sharp View',
+        'xray': '🦴 X-Ray View'
+    };
+    
+    filterNameDisplay.textContent = filterNames[filterName] || 'Normal View';
     
     // Update active button
-    document.querySelectorAll('.filter-btn').forEach(btn => {
+    document.querySelectorAll('.filter-btn-simple').forEach(btn => {
         btn.classList.remove('active');
         if (btn.dataset.filter === filterName) {
             btn.classList.add('active');
         }
     });
     
-    console.log(`🎨 Switched to ${filterName} filter`);
+    console.log(`🎨 Filter: ${filterName}`);
 }
 
 /**
- * Get display name for filter
- */
-function getFilterDisplayName(filterName) {
-    const names = {
-        'normal': 'Normal Mode',
-        'sobel': 'Sobel Edge Detection',
-        'canny': 'Canny Edge Detection',
-        'blur': 'Gaussian Blur',
-        'sharpen': 'Sharpened',
-        'cartoon': 'Cartoon Effect',
-        'xray': 'X-Ray Mode',
-        'comparison': 'Side-by-Side Comparison'
-    };
-    return names[filterName] || 'Unknown';
-}
-
-/**
- * Start camera and pose detection
+ * Start Camera
  */
 async function startCamera() {
     try {
@@ -298,16 +242,17 @@ async function startCamera() {
         });
 
         await camera.start();
+        console.log('✅ Camera started');
         
     } catch (error) {
-        console.error('Error starting camera:', error);
-        alert('Could not access camera. Please grant camera permissions and try again.');
+        console.error('❌ Camera error:', error);
+        alert('Could not access camera. Please allow camera access and try again.');
         resetCamera();
     }
 }
 
 /**
- * Stop camera and pose detection
+ * Stop Camera
  */
 function stopCamera() {
     isRunning = false;
@@ -322,52 +267,46 @@ function stopCamera() {
     statusText.textContent = 'Stopped';
     
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    console.log('⏸️ Camera stopped');
 }
 
 /**
- * Start 10-shot session mode
+ * Start 10-Shot Session
  */
 function startSession() {
     if (!isRunning) {
-        alert('Please start analysis first!');
+        alert('Please start training first!');
         return;
     }
     
     sessionMode = true;
     capturedShots = [];
-    sessionData = {
-        shots: [],
-        startTime: Date.now(),
-        bestShot: 0,
-        worstShot: 100,
-        averageScore: 0
-    };
     
-    // Show session UI elements
+    // Show session UI
     document.getElementById('session-counter').classList.remove('hidden');
-    document.getElementById('session-progress-panel').classList.remove('hidden');
+    document.getElementById('session-panel').classList.remove('hidden');
     
-    // Initialize shot grid
+    // Create shot grid
     const shotsGrid = document.getElementById('shots-grid');
     shotsGrid.innerHTML = '';
     for (let i = 0; i < 10; i++) {
         const shotDiv = document.createElement('div');
-        shotDiv.className = 'shot-thumbnail';
+        shotDiv.className = 'shot-mini';
         shotDiv.id = `shot-${i}`;
-        shotDiv.innerHTML = `<span>Shot ${i + 1}</span><span class="shot-score">--</span>`;
+        shotDiv.innerHTML = `<span>${i + 1}</span><span class="shot-mini-score">--</span>`;
         shotsGrid.appendChild(shotDiv);
     }
     
     updateSessionCounter();
     
     sessionBtn.disabled = true;
-    statusText.textContent = 'Session Mode - Press SPACE to capture shots';
+    statusText.textContent = 'Press SPACE to capture shots!';
     
-    console.log('🎯 Started 10-shot session');
+    console.log('🎯 Session started');
 }
 
 /**
- * Capture a shot during session
+ * Capture Shot
  */
 function captureShot() {
     if (!sessionMode || capturedShots.length >= 10) return;
@@ -379,54 +318,60 @@ function captureShot() {
     const shotData = {
         index: shotIndex,
         score: currentScore,
-        timestamp: Date.now(),
-        metrics: {
-            elbow: parseFloat(document.getElementById('elbow-angle').textContent) || 0,
-            release: parseFloat(document.getElementById('release-height').textContent) || 0,
-            knee: parseFloat(document.getElementById('knee-angle').textContent) || 0,
-            alignment: parseFloat(document.getElementById('alignment-score').textContent) || 0
-        }
+        timestamp: Date.now()
     };
     
     capturedShots.push(shotData);
-    sessionData.shots.push(shotData);
     
     // Update shot thumbnail
     const shotDiv = document.getElementById(`shot-${shotIndex}`);
-    shotDiv.classList.add('captured');
-    shotDiv.querySelector('.shot-score').textContent = currentScore;
+    if (shotDiv) {
+        shotDiv.classList.add('captured');
+        shotDiv.querySelector('.shot-mini-score').textContent = currentScore;
+    }
     
-    // Update session stats
-    updateSessionStats();
+    // Show flash effect
+    showShotFlash(shotIndex + 1);
+    
+    // Play sound
+    playSound('capture-sound');
+    
+    // Update counter
     updateSessionCounter();
     
-    // Play capture sound (optional)
-    playSound('achievement-sound', 0.3);
+    // Update stats
+    updateSessionStats();
     
-    console.log(`📸 Captured shot ${shotIndex + 1}/10 - Score: ${currentScore}`);
+    console.log(`📸 Shot ${shotIndex + 1}/10 captured - Score: ${currentScore}`);
     
     // Check if session complete
     if (capturedShots.length === 10) {
         completeSessionBtn.disabled = false;
-        statusText.textContent = 'Session Complete! Review your shots.';
+        statusText.textContent = 'Session complete! Click finish';
     }
 }
 
 /**
- * Update session counter display
+ * Show Shot Flash Effect
  */
-function updateSessionCounter() {
-    document.getElementById('current-shot').textContent = capturedShots.length;
+function showShotFlash(shotNum) {
+    shotNumber.textContent = `Shot ${shotNum}/10`;
+    shotFlash.classList.remove('hidden');
     
-    // Update progress ring
-    const ring = document.getElementById('session-ring');
-    const circumference = 2 * Math.PI * 25;
-    const offset = circumference - (capturedShots.length / 10) * circumference;
-    ring.style.strokeDashoffset = offset;
+    setTimeout(() => {
+        shotFlash.classList.add('hidden');
+    }, 800);
 }
 
 /**
- * Update session statistics
+ * Update Session Counter
+ */
+function updateSessionCounter() {
+    document.getElementById('current-shot').textContent = capturedShots.length;
+}
+
+/**
+ * Update Session Stats
  */
 function updateSessionStats() {
     if (capturedShots.length === 0) return;
@@ -434,47 +379,30 @@ function updateSessionStats() {
     const scores = capturedShots.map(s => s.score);
     const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
     const bestShot = Math.max(...scores);
-    const worstShot = Math.min(...scores);
-    const stdDev = calculateStdDev(scores);
-    const consistency = Math.max(0, 100 - stdDev);
     
     document.getElementById('best-shot').textContent = bestShot;
     document.getElementById('session-avg').textContent = Math.round(avgScore);
-    document.getElementById('consistency').textContent = Math.round(consistency) + '%';
-    
-    sessionData.bestShot = bestShot;
-    sessionData.worstShot = worstShot;
-    sessionData.averageScore = avgScore;
 }
 
 /**
- * Calculate standard deviation
- */
-function calculateStdDev(values) {
-    const avg = values.reduce((a, b) => a + b, 0) / values.length;
-    const squareDiffs = values.map(value => Math.pow(value - avg, 2));
-    const avgSquareDiff = squareDiffs.reduce((a, b) => a + b, 0) / squareDiffs.length;
-    return Math.sqrt(avgSquareDiff);
-}
-
-/**
- * Complete session and show celebration if earned
+ * Complete Session
  */
 function completeSession() {
     sessionMode = false;
     
-    // Save session to progress data
-    saveSessionToProgress();
+    const avgScore = capturedShots.reduce((sum, s) => sum + s.score, 0) / capturedShots.length;
+    
+    // Save to progress
+    saveSessionToProgress(avgScore);
     
     // Update chart
     updateProgressChart();
     
     // Check for celebration
-    if (sessionData.averageScore >= 90) {
-        showCelebration(sessionData.averageScore);
+    if (avgScore >= 90) {
+        showCelebration(avgScore);
     } else {
-        // Show summary tips
-        showSessionSummary();
+        alert(`Session Complete!\n\nAverage Score: ${Math.round(avgScore)}/100\n\nKeep practicing!`);
     }
     
     // Reset session UI
@@ -486,38 +414,39 @@ function completeSession() {
 }
 
 /**
- * Show celebration overlay for high scores
+ * Show Celebration
  */
 function showCelebration(score) {
-    celebrationOverlay.classList.remove('hidden');
+    document.getElementById('celebration-score').textContent = Math.round(score);
     
-    // Update celebration content
-    let title, message;
     if (score >= 95) {
-        title = '🏆 NBA READY! 🏆';
-        message = 'ELITE FORM - You\'re scout-worthy!';
-    } else if (score >= 90) {
-        title = '🎯 EXCELLENT FORM! 🎯';
-        message = 'Outstanding technique!';
+        document.getElementById('celebration-title').textContent = '🏆 INCREDIBLE! 🏆';
+        document.getElementById('celebration-message').textContent = "You've got NBA-level form!";
+    } else {
+        document.getElementById('celebration-title').textContent = '🎯 AMAZING! 🎯';
+        document.getElementById('celebration-message').textContent = "Outstanding technique!";
     }
     
-    document.getElementById('celebration-title').textContent = title;
-    document.getElementById('celebration-message').textContent = message;
-    document.getElementById('celebration-score').textContent = Math.round(score);
-    document.getElementById('celebration-avg').textContent = Math.round(sessionData.averageScore);
+    celebrationOverlay.classList.remove('hidden');
     
     // Create confetti
     createConfetti();
     
-    // Play sounds
-    playSound('crowd-cheer', 0.5);
-    setTimeout(() => playSound('achievement-sound', 0.6), 500);
+    // Play sound
+    playSound('crowd-cheer');
     
-    console.log('🎉 Celebration triggered!');
+    console.log('🎉 Celebration!');
 }
 
 /**
- * Create confetti animation
+ * Close Celebration
+ */
+function closeCelebration() {
+    celebrationOverlay.classList.add('hidden');
+}
+
+/**
+ * Create Confetti
  */
 function createConfetti() {
     const container = document.getElementById('confetti-container');
@@ -537,231 +466,19 @@ function createConfetti() {
 }
 
 /**
- * Close celebration overlay
+ * Play Sound
  */
-function closeCelebration() {
-    celebrationOverlay.classList.add('hidden');
-}
-
-/**
- * Play sound effect
- */
-function playSound(soundId, volume = 0.5) {
+function playSound(soundId) {
     const sound = document.getElementById(soundId);
     if (sound) {
-        sound.volume = volume;
+        sound.volume = 0.3;
         sound.currentTime = 0;
-        sound.play().catch(e => console.log('Sound play prevented:', e));
+        sound.play().catch(e => console.log('Sound blocked:', e));
     }
 }
 
 /**
- * Show session summary with improvement tips
- */
-function showSessionSummary() {
-    const avgScore = sessionData.averageScore;
-    let tips = [];
-    
-    // Analyze session patterns
-    const elbowAvg = sessionData.shots.reduce((sum, s) => sum + s.metrics.elbow, 0) / 10;
-    const releaseAvg = sessionData.shots.reduce((sum, s) => sum + s.metrics.release, 0) / 10;
-    const kneeAvg = sessionData.shots.reduce((sum, s) => sum + s.metrics.knee, 0) / 10;
-    
-    if (elbowAvg < 85) {
-        tips.push('💡 Raise your elbow higher - aim for 90°');
-    } else if (elbowAvg > 95) {
-        tips.push('💡 Lower your elbow slightly for better control');
-    }
-    
-    if (releaseAvg < 45) {
-        tips.push('💡 Release the ball higher for better arc');
-    }
-    
-    if (kneeAvg < 100) {
-        tips.push('💡 Bend your knees more for power generation');
-    }
-    
-    if (tips.length > 0) {
-        alert('Session Complete!\n\nYour Score: ' + Math.round(avgScore) + '/100\n\nTips for Improvement:\n' + tips.join('\n'));
-    } else {
-        alert('Great session! Score: ' + Math.round(avgScore) + '/100\n\nKeep practicing to maintain consistency!');
-    }
-}
-
-/**
- * Save session data to localStorage for progress tracking
- */
-function saveSessionToProgress() {
-    const today = new Date().toDateString();
-    
-    if (!progressData.dailyScores[today]) {
-        progressData.dailyScores[today] = [];
-    }
-    
-    progressData.dailyScores[today].push(sessionData.averageScore);
-    progressData.sessions.push({
-        date: Date.now(),
-        score: sessionData.averageScore,
-        shots: sessionData.shots.length
-    });
-    
-    // Keep only last 30 sessions
-    if (progressData.sessions.length > 30) {
-        progressData.sessions = progressData.sessions.slice(-30);
-    }
-    
-    // Update weekly progress
-    updateWeeklyProgress();
-    
-    // Save to localStorage
-    localStorage.setItem('shotAnalyzerProgress', JSON.stringify(progressData));
-    
-    // Update stats display
-    updateProgressStats();
-}
-
-/**
- * Load progress data from localStorage
- */
-function loadProgressData() {
-    const saved = localStorage.getItem('shotAnalyzerProgress');
-    if (saved) {
-        progressData = JSON.parse(saved);
-        updateProgressStats();
-    }
-}
-
-/**
- * Update weekly progress summary
- */
-function updateWeeklyProgress() {
-    const now = Date.now();
-    const weekAgo = now - (7 * 24 * 60 * 60 * 1000);
-    
-    const thisWeek = progressData.sessions.filter(s => s.date > weekAgo);
-    progressData.weeklyProgress = thisWeek;
-}
-
-/**
- * Update progress statistics display
- */
-function updateProgressStats() {
-    const today = new Date().toDateString();
-    const sessionsToday = (progressData.dailyScores[today] || []).length;
-    const sessionsWeek = progressData.weeklyProgress.length;
-    
-    document.getElementById('sessions-today').textContent = sessionsToday;
-    document.getElementById('sessions-week').textContent = sessionsWeek;
-    
-    // Calculate improvement
-    if (progressData.sessions.length >= 2) {
-        const recent = progressData.sessions.slice(-5);
-        const older = progressData.sessions.slice(-10, -5);
-        
-        if (older.length > 0) {
-            const recentAvg = recent.reduce((sum, s) => sum + s.score, 0) / recent.length;
-            const olderAvg = older.reduce((sum, s) => sum + s.score, 0) / older.length;
-            const improvement = recentAvg - olderAvg;
-            
-            const improvementEl = document.getElementById('improvement');
-            improvementEl.textContent = (improvement >= 0 ? '+' : '') + Math.round(improvement);
-            improvementEl.style.color = improvement >= 0 ? '#4ade80' : '#ef4444';
-        }
-    }
-}
-
-/**
- * Initialize progress chart
- */
-function initializeChart() {
-    const chartCanvas = document.getElementById('progress-chart');
-    const chartCtx = chartCanvas.getContext('2d');
-    
-    progressChart = new Chart(chartCtx, {
-        type: 'line',
-        data: {
-            labels: [],
-            datasets: [{
-                label: 'Form Score',
-                data: [],
-                borderColor: '#667eea',
-                backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                tension: 0.4,
-                fill: true
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: false
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    max: 100,
-                    ticks: {
-                        callback: function(value) {
-                            return value;
-                        }
-                    }
-                },
-                x: {
-                    ticks: {
-                        maxRotation: 45,
-                        minRotation: 45
-                    }
-                }
-            }
-        }
-    });
-    
-    updateProgressChart();
-}
-
-/**
- * Update progress chart with latest data
- */
-function updateProgressChart() {
-    if (!progressChart) return;
-    
-    const sessions = progressData.sessions.slice(-10); // Last 10 sessions
-    const labels = sessions.map((s, i) => `Session ${i + 1}`);
-    const scores = sessions.map(s => Math.round(s.score));
-    
-    progressChart.data.labels = labels;
-    progressChart.data.datasets[0].data = scores;
-    progressChart.update();
-}
-
-/**
- * Reset all statistics
- */
-function resetStats() {
-    analysisData = {
-        elbowAngles: [],
-        releaseHeights: [],
-        kneeAngles: [],
-        alignmentScores: [],
-        overallScores: []
-    };
-    frameCount = 0;
-    
-    updateMetricDisplay('overall-score', '--');
-    updateMetricDisplay('elbow-angle', '--°');
-    updateMetricDisplay('release-height', '--°');
-    updateMetricDisplay('knee-angle', '--°');
-    updateMetricDisplay('alignment-score', '--');
-    
-    document.getElementById('form-feedback').textContent = 'Statistics reset. Continue analyzing...';
-    updateProgressBars(0, 0, 0, 0);
-    updateScoreRing(0);
-}
-
-/**
- * Process pose detection results and apply current filter
+ * Process Pose Results and Apply Filters
  */
 function onPoseResults(results) {
     canvas.width = video.videoWidth;
@@ -769,38 +486,41 @@ function onPoseResults(results) {
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Draw video frame (or apply filter to it)
+    // Apply filter or draw normal video
     if (opencvReady && currentFilter !== 'normal') {
-        applyFilterToFrame(results.image);
+        try {
+            applyFilterToFrame(results.image);
+        } catch (error) {
+            console.error('Filter error:', error);
+            ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+        }
     } else {
         ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
     }
 
     if (!results.poseLandmarks) {
-        document.getElementById('form-feedback').textContent = 'No person detected. Step into frame.';
+        document.getElementById('form-feedback').textContent = 'Step into frame!';
+        updateImprovementTips(['Get in position to start analyzing']);
         return;
     }
 
-    // Draw pose overlay (if not in certain filter modes)
-    if (currentFilter !== 'comparison') {
-        drawPose(results.poseLandmarks);
-    }
+    // Draw pose skeleton
+    drawPose(results.poseLandmarks);
 
-    // Perform biomechanical analysis
+    // Analyze form
     analyzeShootingForm(results.poseLandmarks);
     
     frameCount++;
 }
 
 /**
- * Apply OpenCV filters to the video frame
+ * Apply OpenCV Filters
  */
 function applyFilterToFrame(imageElement) {
+    const src = cv.imread(imageElement);
+    let dst = new cv.Mat();
+    
     try {
-        // Create mat from image
-        const src = cv.imread(imageElement);
-        let dst = new cv.Mat();
-        
         switch(currentFilter) {
             case 'sobel':
                 applySobelFilter(src, dst);
@@ -814,35 +534,22 @@ function applyFilterToFrame(imageElement) {
             case 'sharpen':
                 applySharpenFilter(src, dst);
                 break;
-            case 'cartoon':
-                applyCartoonFilter(src, dst);
-                break;
             case 'xray':
                 applyXRayFilter(src, dst);
-                break;
-            case 'comparison':
-                applyComparisonMode(src, dst);
                 break;
             default:
                 dst = src.clone();
         }
         
-        // Draw filtered image to canvas
         cv.imshow(canvas, dst);
-        
-        // Clean up
+    } finally {
         src.delete();
         dst.delete();
-        
-    } catch (error) {
-        console.error('Filter error:', error);
-        // Fallback to normal display
-        ctx.drawImage(imageElement, 0, 0, canvas.width, canvas.height);
     }
 }
 
 /**
- * Apply Sobel edge detection filter
+ * Sobel Filter
  */
 function applySobelFilter(src, dst) {
     const gray = new cv.Mat();
@@ -851,24 +558,14 @@ function applySobelFilter(src, dst) {
     const absGradX = new cv.Mat();
     const absGradY = new cv.Mat();
     
-    // Convert to grayscale
     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-    
-    // Apply Sobel
     cv.Sobel(gray, gradX, cv.CV_16S, 1, 0, 3);
     cv.Sobel(gray, gradY, cv.CV_16S, 0, 1, 3);
-    
-    // Convert back to CV_8U
     cv.convertScaleAbs(gradX, absGradX);
     cv.convertScaleAbs(gradY, absGradY);
-    
-    // Combine gradients
     cv.addWeighted(absGradX, 0.5, absGradY, 0.5, 0, dst);
-    
-    // Convert to RGBA for display
     cv.cvtColor(dst, dst, cv.COLOR_GRAY2RGBA);
     
-    // Clean up
     gray.delete();
     gradX.delete();
     gradY.delete();
@@ -877,122 +574,57 @@ function applySobelFilter(src, dst) {
 }
 
 /**
- * Apply Canny edge detection filter
+ * Canny Filter
  */
 function applyCannyFilter(src, dst) {
     const gray = new cv.Mat();
     const edges = new cv.Mat();
     
-    // Convert to grayscale
     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-    
-    // Apply Gaussian blur to reduce noise
     cv.GaussianBlur(gray, gray, new cv.Size(5, 5), 0);
-    
-    // Apply Canny edge detection
-    cv.Canny(gray, edges, filterParams.cannyT1, filterParams.cannyT2);
-    
-    // Convert to RGBA for display
+    cv.Canny(gray, edges, 80, 150);
     cv.cvtColor(edges, dst, cv.COLOR_GRAY2RGBA);
     
-    // Clean up
     gray.delete();
     edges.delete();
 }
 
 /**
- * Apply Gaussian blur filter
+ * Gaussian Blur Filter
  */
 function applyGaussianBlur(src, dst) {
-    const ksize = new cv.Size(filterParams.blurSize, filterParams.blurSize);
-    cv.GaussianBlur(src, dst, ksize, 0);
+    cv.GaussianBlur(src, dst, new cv.Size(9, 9), 0);
 }
 
 /**
- * Apply sharpening filter
+ * Sharpen Filter
  */
 function applySharpenFilter(src, dst) {
     const blurred = new cv.Mat();
-    const ksize = new cv.Size(5, 5);
-    
-    // Blur the image
-    cv.GaussianBlur(src, blurred, ksize, 0);
-    
-    // Sharpen = original + intensity * (original - blurred)
-    cv.addWeighted(src, 1 + filterParams.sharpenIntensity, blurred, -filterParams.sharpenIntensity, 0, dst);
-    
+    cv.GaussianBlur(src, blurred, new cv.Size(5, 5), 0);
+    cv.addWeighted(src, 2.0, blurred, -1.0, 0, dst);
     blurred.delete();
 }
 
 /**
- * Apply cartoon effect filter
- */
-function applyCartoonFilter(src, dst) {
-    const gray = new cv.Mat();
-    const edges = new cv.Mat();
-    const color = new cv.Mat();
-    
-    // Edge detection
-    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-    cv.medianBlur(gray, gray, 7);
-    cv.adaptiveThreshold(gray, edges, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 9, 2);
-    
-    // Color quantization
-    cv.bilateralFilter(src, color, 9, 300, 300);
-    
-    // Combine edges and color
-    cv.cvtColor(edges, edges, cv.COLOR_GRAY2RGBA);
-    cv.bitwise_and(color, edges, dst);
-    
-    // Clean up
-    gray.delete();
-    edges.delete();
-    color.delete();
-}
-
-/**
- * Apply X-Ray mode (inverted edges with skeleton)
+ * X-Ray Filter
  */
 function applyXRayFilter(src, dst) {
     const gray = new cv.Mat();
     const edges = new cv.Mat();
     
-    // Convert to grayscale and invert
     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
     cv.bitwise_not(gray, gray);
-    
-    // Detect edges
     cv.Canny(gray, edges, 50, 150);
-    
-    // Create X-ray effect (white edges on black background)
     cv.bitwise_not(edges, edges);
-    
-    // Convert to RGBA
     cv.cvtColor(edges, dst, cv.COLOR_GRAY2RGBA);
     
-    // Clean up
     gray.delete();
     edges.delete();
 }
 
 /**
- * Apply side-by-side comparison mode
- */
-function applyComparisonMode(src, dst) {
-    // Create 2x2 grid of different filters
-    const w = src.cols;
-    const h = src.rows;
-    const halfW = Math.floor(w / 2);
-    const halfH = Math.floor(h / 2);
-    
-    dst = src.clone();
-    
-    // For simplicity, just show normal for now
-    // In full implementation, would show 4 different filter views
-}
-
-/**
- * Draw pose skeleton and landmarks
+ * Draw Pose Skeleton
  */
 function drawPose(landmarks) {
     const connections = [
@@ -1005,7 +637,6 @@ function drawPose(landmarks) {
         [24, 26], [26, 28]
     ];
 
-    // Draw connections
     ctx.strokeStyle = currentFilter === 'xray' ? '#00ff00' : '#4ade80';
     ctx.lineWidth = 3;
     
@@ -1021,7 +652,6 @@ function drawPose(landmarks) {
         }
     });
 
-    // Draw landmarks
     landmarks.forEach((landmark, index) => {
         if (index > 10 && index < 29) {
             ctx.fillStyle = currentFilter === 'xray' ? '#ffffff' : '#667eea';
@@ -1039,7 +669,7 @@ function drawPose(landmarks) {
 }
 
 /**
- * Analyze shooting form (same as v1 but with session tracking)
+ * Analyze Shooting Form
  */
 function analyzeShootingForm(landmarks) {
     const rightShoulder = landmarks[12];
@@ -1091,12 +721,12 @@ function analyzeShootingForm(landmarks) {
 
     updateMetricDisplay('overall-score', overallScore);
     updateScoreRing(overallScore);
-    updateProgressBars(elbowScore, releaseScore, kneeScore, alignmentScoreValue);
-    updateFeedback(overallScore, elbowScore, releaseScore, kneeScore, alignmentScoreValue);
-    updateStatusMessages(avgElbow, avgRelease, avgKnee, avgAlignment);
+    updateQuickBars(elbowScore, releaseScore, kneeScore, alignmentScoreValue);
+    updateFeedback(overallScore);
+    updateImprovementTips(avgElbow, avgRelease, avgKnee, avgAlignment);
 }
 
-// Utility functions (same as v1)
+// Calculation Functions
 function calculateAngle(point1, point2, point3) {
     const radians = Math.atan2(point3.y - point2.y, point3.x - point2.x) -
                     Math.atan2(point1.y - point2.y, point1.x - point2.x);
@@ -1108,8 +738,7 @@ function calculateAngle(point1, point2, point3) {
 function calculateReleaseAngle(shoulder, wrist) {
     const deltaY = shoulder.y - wrist.y;
     const deltaX = Math.abs(shoulder.x - wrist.x);
-    const angle = Math.atan2(deltaY, deltaX) * 180 / Math.PI;
-    return Math.max(0, angle);
+    return Math.max(0, Math.atan2(deltaY, deltaX) * 180 / Math.PI);
 }
 
 function calculateAlignment(leftShoulder, rightShoulder) {
@@ -1137,6 +766,12 @@ function scoreKneeAngle(angle) {
     return Math.max(0, 100 - ((angle - 130) * 2));
 }
 
+function average(arr) {
+    if (arr.length === 0) return 0;
+    return arr.reduce((a, b) => a + b, 0) / arr.length;
+}
+
+// UI Update Functions
 function updateMetricDisplay(elementId, value) {
     const element = document.getElementById(elementId);
     if (element) element.textContent = value;
@@ -1144,7 +779,9 @@ function updateMetricDisplay(elementId, value) {
 
 function updateScoreRing(score) {
     const ring = document.getElementById('score-ring');
-    const circumference = 2 * Math.PI * 52;
+    if (!ring) return;
+    
+    const circumference = 2 * Math.PI * 60;
     const offset = circumference - (score / 100) * circumference;
     ring.style.strokeDashoffset = offset;
     
@@ -1153,7 +790,7 @@ function updateScoreRing(score) {
     else ring.style.stroke = '#ef4444';
 }
 
-function updateProgressBars(elbowScore, releaseScore, kneeScore, alignmentScore) {
+function updateQuickBars(elbowScore, releaseScore, kneeScore, alignmentScore) {
     updateBar('elbow-bar', elbowScore);
     updateBar('release-bar', releaseScore);
     updateBar('knee-bar', kneeScore);
@@ -1162,62 +799,158 @@ function updateProgressBars(elbowScore, releaseScore, kneeScore, alignmentScore)
 
 function updateBar(barId, score) {
     const bar = document.getElementById(barId);
+    if (!bar) return;
+    
     bar.style.width = score + '%';
     bar.classList.remove('good', 'warning', 'poor');
+    
     if (score >= 80) bar.classList.add('good');
     else if (score >= 60) bar.classList.add('warning');
     else bar.classList.add('poor');
 }
 
-function updateFeedback(overall) {
+function updateFeedback(score) {
     const feedback = document.getElementById('form-feedback');
-    if (overall >= 85) feedback.textContent = '🎯 Excellent form! Your technique is on point!';
-    else if (overall >= 70) feedback.textContent = '👍 Good form! Keep practicing for consistency.';
-    else if (overall >= 50) feedback.textContent = '⚠️ Fair form. Focus on the metrics below.';
-    else feedback.textContent = '💡 Needs improvement. Review the tips.';
+    if (!feedback) return;
+    
+    if (score >= 90) feedback.textContent = '🔥 Amazing form!';
+    else if (score >= 80) feedback.textContent = '🎯 Great job!';
+    else if (score >= 70) feedback.textContent = '👍 Good work!';
+    else if (score >= 60) feedback.textContent = '💪 Keep practicing!';
+    else feedback.textContent = '📚 Check the tips below';
 }
 
-function updateStatusMessages(elbow, release, knee, alignment) {
-    const elbowStatus = document.getElementById('elbow-status');
-    if (elbow >= 85 && elbow <= 95) {
-        elbowStatus.textContent = '✓ Perfect elbow angle!';
-        elbowStatus.style.color = '#4ade80';
-    } else {
-        elbowStatus.textContent = elbow < 85 ? '↑ Raise elbow' : '↓ Lower elbow';
-        elbowStatus.style.color = '#f59e0b';
+function updateImprovementTips(elbow, release, knee, alignment) {
+    const tipsList = document.getElementById('improvement-list');
+    if (!tipsList) return;
+    
+    const tips = [];
+    
+    if (elbow < 85) tips.push('Raise your elbow higher (aim for 90°)');
+    else if (elbow > 95) tips.push('Lower your elbow slightly');
+    
+    if (release < 45) tips.push('Release the ball higher');
+    else if (release > 60) tips.push('Release point is too high');
+    
+    if (knee < 100) tips.push('Bend your knees more for power');
+    else if (knee > 130) tips.push('Don\'t bend knees too much');
+    
+    if (alignment < 90) tips.push('Keep shoulders level');
+    
+    if (tips.length === 0) {
+        tips.push('Form looks great! Keep it up!');
     }
     
-    const releaseStatus = document.getElementById('release-status');
-    if (release >= 45 && release <= 60) {
-        releaseStatus.textContent = '✓ Optimal release!';
-        releaseStatus.style.color = '#4ade80';
-    } else {
-        releaseStatus.textContent = release < 45 ? '↑ Higher release' : '↓ Lower release';
-        releaseStatus.style.color = '#f59e0b';
+    tipsList.innerHTML = tips.map(tip => `<li>${tip}</li>`).join('');
+}
+
+// Progress Tracking
+function saveSessionToProgress(avgScore) {
+    const today = new Date().toDateString();
+    
+    if (!progressData.dailyScores[today]) {
+        progressData.dailyScores[today] = [];
     }
     
-    const kneeStatus = document.getElementById('knee-status');
-    if (knee >= 100 && knee <= 130) {
-        kneeStatus.textContent = '✓ Good knee bend!';
-        kneeStatus.style.color = '#4ade80';
-    } else {
-        kneeStatus.textContent = knee < 100 ? 'Bend more' : 'Too bent';
-        kneeStatus.style.color = '#f59e0b';
+    progressData.dailyScores[today].push(avgScore);
+    progressData.sessions.push({
+        date: Date.now(),
+        score: avgScore
+    });
+    
+    if (progressData.sessions.length > 30) {
+        progressData.sessions = progressData.sessions.slice(-30);
     }
     
-    const alignmentStatus = document.getElementById('alignment-status');
-    if (alignment >= 90) {
-        alignmentStatus.textContent = '✓ Perfect alignment!';
-        alignmentStatus.style.color = '#4ade80';
-    } else {
-        alignmentStatus.textContent = 'Check shoulders';
-        alignmentStatus.style.color = '#f59e0b';
+    localStorage.setItem('shotAnalyzerProgress', JSON.stringify(progressData));
+    
+    updateProgressStats();
+}
+
+function loadProgressData() {
+    const saved = localStorage.getItem('shotAnalyzerProgress');
+    if (saved) {
+        progressData = JSON.parse(saved);
+        updateProgressStats();
     }
 }
 
-function average(arr) {
-    if (arr.length === 0) return 0;
-    return arr.reduce((a, b) => a + b, 0) / arr.length;
+function updateProgressStats() {
+    const today = new Date().toDateString();
+    const sessionsToday = (progressData.dailyScores[today] || []).length;
+    
+    const now = Date.now();
+    const weekAgo = now - (7 * 24 * 60 * 60 * 1000);
+    const sessionsWeek = progressData.sessions.filter(s => s.date > weekAgo).length;
+    
+    updateMetricDisplay('sessions-today', sessionsToday);
+    updateMetricDisplay('sessions-week', sessionsWeek);
+    
+    if (progressData.sessions.length >= 2) {
+        const recent = progressData.sessions.slice(-5);
+        const older = progressData.sessions.slice(-10, -5);
+        
+        if (older.length > 0) {
+            const recentAvg = recent.reduce((sum, s) => sum + s.score, 0) / recent.length;
+            const olderAvg = older.reduce((sum, s) => sum + s.score, 0) / older.length;
+            const improvement = recentAvg - olderAvg;
+            
+            const improvementEl = document.getElementById('improvement');
+            if (improvementEl) {
+                improvementEl.textContent = (improvement >= 0 ? '+' : '') + Math.round(improvement);
+                improvementEl.style.color = improvement >= 0 ? '#4ade80' : '#ef4444';
+            }
+        }
+    }
+}
+
+function initializeChart() {
+    const chartCanvas = document.getElementById('progress-chart');
+    if (!chartCanvas) return;
+    
+    const chartCtx = chartCanvas.getContext('2d');
+    
+    progressChart = new Chart(chartCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Score',
+                data: [],
+                borderColor: '#667eea',
+                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100
+                }
+            }
+        }
+    });
+    
+    updateProgressChart();
+}
+
+function updateProgressChart() {
+    if (!progressChart) return;
+    
+    const sessions = progressData.sessions.slice(-10);
+    const labels = sessions.map((s, i) => `${i + 1}`);
+    const scores = sessions.map(s => Math.round(s.score));
+    
+    progressChart.data.labels = labels;
+    progressChart.data.datasets[0].data = scores;
+    progressChart.update();
 }
 
 function resetCamera() {
@@ -1225,8 +958,10 @@ function resetCamera() {
     startBtn.disabled = false;
     sessionBtn.disabled = true;
     stopBtn.disabled = true;
-    statusText.textContent = 'Ready';
+    statusText.textContent = 'Ready to Start!';
 }
 
-// Initialize application when page loads
+// Initialize on load
 window.addEventListener('load', initialize);
+
+console.log('🏀 Shot Analyzer v2.0 Loaded!');
