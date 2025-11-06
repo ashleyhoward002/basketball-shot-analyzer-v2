@@ -3,351 +3,293 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Basketball Shot Analyzer v2.0 | Advanced Computer Vision Training System</title>
+    <title>Basketball Shot Analyzer v2.0 | Train Like a Pro</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
-        <!-- Header Section -->
+        <!-- Header -->
         <header>
-            <div class="logo">
-                <h1>🏀 Shot Form Analyzer v2.0</h1>
-                <p class="subtitle">Advanced Computer Vision Training System with Real-Time Filters</p>
-                <div class="version-badge">Module 7 Enhanced Edition</div>
-            </div>
+            <h1>🏀 Shot Form Analyzer</h1>
+            <p class="subtitle">Train Like a Pro - Perfect Your Shot!</p>
         </header>
 
-        <!-- Main Content -->
-        <main>
-            <!-- Left Panel: Video & Controls -->
-            <div class="left-panel">
+        <!-- How to Use Panel (Always Visible) -->
+        <div class="instructions-panel">
+            <h3>📋 How to Use (Easy 4 Steps!)</h3>
+            <div class="instructions-grid">
+                <div class="instruction-step">
+                    <span class="step-number">1</span>
+                    <p><strong>Stand Back</strong><br>6-8 feet from camera</p>
+                </div>
+                <div class="instruction-step">
+                    <span class="step-number">2</span>
+                    <p><strong>Full Body Visible</strong><br>Head to feet in frame</p>
+                </div>
+                <div class="instruction-step">
+                    <span class="step-number">3</span>
+                    <p><strong>Click Start</strong><br>Allow camera access</p>
+                </div>
+                <div class="instruction-step">
+                    <span class="step-number">4</span>
+                    <p><strong>Practice!</strong><br>Watch your scores improve</p>
+                </div>
+            </div>
+            <div class="pro-tips">
+                <strong>💡 Pro Tips:</strong> Good lighting helps tracking • Try filters with keyboard (E=Edges, X=X-Ray) • Press SPACE to save a shot
+            </div>
+        </div>
+
+        <!-- Main Content - Side by Side Layout -->
+        <main class="main-layout">
+            <!-- LEFT: Video + Metrics Together -->
+            <div class="video-metrics-panel">
                 <!-- Video Section -->
                 <div class="video-container">
                     <div class="video-wrapper">
                         <video id="webcam" autoplay playsinline></video>
                         <canvas id="output-canvas"></canvas>
                         
-                        <!-- Loading Overlay -->
+                        <!-- Loading -->
                         <div id="loading-overlay" class="loading">
                             <div class="spinner"></div>
-                            <p>Initializing AI Model...</p>
+                            <p>Loading AI Coach...</p>
                         </div>
 
-                        <!-- Filter Mode Indicator -->
-                        <div id="filter-mode" class="filter-indicator">
-                            <span id="filter-name">Normal Mode</span>
+                        <!-- Filter Name Badge -->
+                        <div id="filter-mode" class="filter-badge">
+                            <span id="filter-name">👁️ Normal View</span>
+                        </div>
+
+                        <!-- Shot Captured Flash -->
+                        <div id="shot-flash" class="shot-flash hidden">
+                            <div class="flash-content">
+                                <h2>📸 SHOT CAPTURED!</h2>
+                                <p id="shot-number">Shot 1/10</p>
+                            </div>
                         </div>
 
                         <!-- Session Counter -->
                         <div id="session-counter" class="session-counter hidden">
-                            <span class="shot-count">Shot <span id="current-shot">0</span>/10</span>
-                            <div class="progress-ring-small">
-                                <svg width="60" height="60">
-                                    <circle class="progress-ring-bg" cx="30" cy="30" r="25" />
-                                    <circle class="progress-ring-fill" id="session-ring" cx="30" cy="30" r="25" />
-                                </svg>
-                            </div>
+                            <span id="current-shot">0</span>/10 Shots
                         </div>
 
-                        <!-- Status Indicator -->
+                        <!-- Status -->
                         <div id="status-indicator" class="status-indicator">
                             <span class="status-dot"></span>
-                            <span id="status-text">Ready</span>
-                        </div>
-
-                        <!-- Celebration Overlay -->
-                        <div id="celebration-overlay" class="celebration-overlay hidden">
-                            <div class="stadium-background"></div>
-                            <div class="confetti-container" id="confetti-container"></div>
-                            <div class="celebration-content">
-                                <h2 id="celebration-title">🏆 PERFECT FORM! 🏆</h2>
-                                <p id="celebration-message">You're NBA Ready!</p>
-                                <div class="celebration-stats">
-                                    <div class="stat-item">
-                                        <span class="stat-label">Form Score</span>
-                                        <span class="stat-value" id="celebration-score">98</span>
-                                    </div>
-                                    <div class="stat-item">
-                                        <span class="stat-label">Session Avg</span>
-                                        <span class="stat-value" id="celebration-avg">92</span>
-                                    </div>
-                                </div>
-                                <button id="celebration-close" class="btn btn-primary">Continue Training</button>
-                            </div>
+                            <span id="status-text">Ready to Start!</span>
                         </div>
                     </div>
 
-                    <!-- Main Controls -->
+                    <!-- Controls -->
                     <div class="controls">
-                        <button id="start-btn" class="btn btn-primary">
-                            <span>📹</span> Start Analysis
+                        <button id="start-btn" class="btn btn-large btn-primary">
+                            🎥 Start Training
                         </button>
-                        <button id="session-btn" class="btn btn-success" disabled>
-                            <span>🎯</span> Start 10-Shot Session
+                        <button id="session-btn" class="btn btn-large btn-success" disabled>
+                            🎯 Start 10-Shot Challenge
                         </button>
                         <button id="stop-btn" class="btn btn-secondary" disabled>
-                            <span>⏸️</span> Stop
-                        </button>
-                        <button id="reset-btn" class="btn btn-tertiary">
-                            <span>🔄</span> Reset
+                            ⏸️ Stop
                         </button>
                     </div>
                 </div>
 
-                <!-- Filter Controls Panel -->
-                <div class="filter-controls-panel">
-                    <h3>🎨 Computer Vision Filters</h3>
+                <!-- Live Metrics (Right next to video) -->
+                <div class="live-metrics">
+                    <h3>📊 Your Form Score</h3>
                     
-                    <div class="filter-grid">
-                        <button class="filter-btn active" data-filter="normal">
-                            <span class="filter-icon">👁️</span>
-                            <span class="filter-label">Normal</span>
-                            <span class="filter-key">N</span>
-                        </button>
-                        
-                        <button class="filter-btn" data-filter="sobel">
-                            <span class="filter-icon">📐</span>
-                            <span class="filter-label">Sobel Edges</span>
-                            <span class="filter-key">E</span>
-                        </button>
-                        
-                        <button class="filter-btn" data-filter="canny">
-                            <span class="filter-icon">✨</span>
-                            <span class="filter-label">Canny Edges</span>
-                            <span class="filter-key">C</span>
-                        </button>
-                        
-                        <button class="filter-btn" data-filter="blur">
-                            <span class="filter-icon">🌫️</span>
-                            <span class="filter-label">Gaussian Blur</span>
-                            <span class="filter-key">B</span>
-                        </button>
-                        
-                        <button class="filter-btn" data-filter="sharpen">
-                            <span class="filter-icon">🔪</span>
-                            <span class="filter-label">Sharpen</span>
-                            <span class="filter-key">S</span>
-                        </button>
-                        
-                        <button class="filter-btn" data-filter="cartoon">
-                            <span class="filter-icon">🎨</span>
-                            <span class="filter-label">Cartoon</span>
-                            <span class="filter-key">T</span>
-                        </button>
-                        
-                        <button class="filter-btn" data-filter="xray">
-                            <span class="filter-icon">🦴</span>
-                            <span class="filter-label">X-Ray Mode</span>
-                            <span class="filter-key">X</span>
-                        </button>
-                        
-                        <button class="filter-btn" data-filter="comparison">
-                            <span class="filter-icon">⚖️</span>
-                            <span class="filter-label">Side-by-Side</span>
-                            <span class="filter-key">V</span>
-                        </button>
+                    <!-- Big Score Display -->
+                    <div class="score-display-large">
+                        <div class="score-circle-large">
+                            <svg width="140" height="140">
+                                <circle class="score-ring-bg" cx="70" cy="70" r="60" />
+                                <circle class="score-ring-fill" id="score-ring" cx="70" cy="70" r="60" />
+                            </svg>
+                            <div class="score-text-large">
+                                <span id="overall-score" class="score-number-large">--</span>
+                                <span class="score-label-large">/100</span>
+                            </div>
+                        </div>
+                        <p id="form-feedback" class="feedback-large">
+                            Get in position to see your score!
+                        </p>
                     </div>
 
-                    <!-- Parameter Controls -->
-                    <div class="parameter-controls">
-                        <div class="param-group" id="canny-params">
-                            <label>Canny Threshold 1: <span id="canny-t1-val">80</span></label>
-                            <input type="range" id="canny-t1" min="0" max="200" value="80">
-                            
-                            <label>Canny Threshold 2: <span id="canny-t2-val">150</span></label>
-                            <input type="range" id="canny-t2" min="0" max="300" value="150">
+                    <!-- Quick Metrics -->
+                    <div class="quick-metrics">
+                        <div class="quick-metric">
+                            <span class="metric-icon">💪</span>
+                            <span class="metric-label">Elbow</span>
+                            <span id="elbow-angle" class="metric-value-quick">--°</span>
+                            <div class="metric-mini-bar">
+                                <div id="elbow-bar" class="mini-bar-fill"></div>
+                            </div>
                         </div>
 
-                        <div class="param-group" id="blur-params">
-                            <label>Blur Kernel Size: <span id="blur-size-val">5</span>x<span id="blur-size-val-2">5</span></label>
-                            <input type="range" id="blur-size" min="3" max="21" step="2" value="5">
+                        <div class="quick-metric">
+                            <span class="metric-icon">🎯</span>
+                            <span class="metric-label">Release</span>
+                            <span id="release-height" class="metric-value-quick">--°</span>
+                            <div class="metric-mini-bar">
+                                <div id="release-bar" class="mini-bar-fill"></div>
+                            </div>
                         </div>
 
-                        <div class="param-group" id="sharpen-params">
-                            <label>Sharpen Intensity: <span id="sharpen-val">1.5</span></label>
-                            <input type="range" id="sharpen-intensity" min="0.5" max="3" step="0.1" value="1.5">
+                        <div class="quick-metric">
+                            <span class="metric-icon">🦵</span>
+                            <span class="metric-label">Knees</span>
+                            <span id="knee-angle" class="metric-value-quick">--°</span>
+                            <div class="metric-mini-bar">
+                                <div id="knee-bar" class="mini-bar-fill"></div>
+                            </div>
+                        </div>
+
+                        <div class="quick-metric">
+                            <span class="metric-icon">📐</span>
+                            <span class="metric-label">Balance</span>
+                            <span id="alignment-score" class="metric-value-quick">--</span>
+                            <div class="metric-mini-bar">
+                                <div id="alignment-bar" class="mini-bar-fill"></div>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Keyboard Shortcuts Reference -->
-                    <div class="shortcuts-panel">
-                        <h4>⌨️ Keyboard Shortcuts</h4>
-                        <div class="shortcuts-grid">
-                            <div class="shortcut"><kbd>N</kbd> Normal</div>
-                            <div class="shortcut"><kbd>E</kbd> Sobel</div>
-                            <div class="shortcut"><kbd>C</kbd> Canny</div>
-                            <div class="shortcut"><kbd>B</kbd> Blur</div>
-                            <div class="shortcut"><kbd>S</kbd> Sharpen</div>
-                            <div class="shortcut"><kbd>T</kbd> Cartoon</div>
-                            <div class="shortcut"><kbd>X</kbd> X-Ray</div>
-                            <div class="shortcut"><kbd>V</kbd> Compare</div>
-                            <div class="shortcut"><kbd>SPACE</kbd> Capture Shot</div>
-                        </div>
+                    <!-- What to Improve -->
+                    <div class="improvement-tips">
+                        <h4>💡 Focus On:</h4>
+                        <ul id="improvement-list">
+                            <li>Start shooting to get feedback!</li>
+                        </ul>
                     </div>
                 </div>
             </div>
 
-            <!-- Right Panel: Analytics & Progress -->
-            <div class="right-panel">
-                <!-- Current Analysis -->
-                <div class="analytics-container">
-                    <h3>📊 Current Analysis</h3>
+            <!-- RIGHT: Filters + Progress -->
+            <div class="sidebar-panel">
+                <!-- Filter Controls -->
+                <div class="filter-panel">
+                    <h3>🎨 View Modes</h3>
+                    <p class="filter-help">Try different views to see your form better!</p>
                     
-                    <div class="analytics-grid">
-                        <!-- Overall Form Score -->
-                        <div class="metric-card primary-card">
-                            <div class="metric-header">
-                                <h3>Overall Form Score</h3>
-                                <span class="info-icon" title="Composite score based on all technique metrics">ℹ️</span>
-                            </div>
-                            <div class="score-display">
-                                <div class="score-circle">
-                                    <svg class="progress-ring" width="120" height="120">
-                                        <circle class="progress-ring-bg" cx="60" cy="60" r="52" />
-                                        <circle class="progress-ring-fill" id="score-ring" cx="60" cy="60" r="52" />
-                                    </svg>
-                                    <div class="score-text">
-                                        <span id="overall-score" class="score-number">--</span>
-                                        <span class="score-label">/ 100</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div id="form-feedback" class="feedback-text">
-                                Position yourself in frame to begin analysis
-                            </div>
-                        </div>
-
-                        <!-- Key Metrics -->
-                        <div class="metric-card">
-                            <h3>Shooting Elbow</h3>
-                            <div class="metric-value">
-                                <span id="elbow-angle" class="angle-display">--°</span>
-                            </div>
-                            <div class="metric-bar">
-                                <div id="elbow-bar" class="progress-bar"></div>
-                            </div>
-                            <p class="metric-status" id="elbow-status">Optimal: 85-95°</p>
-                        </div>
-
-                        <div class="metric-card">
-                            <h3>Release Height</h3>
-                            <div class="metric-value">
-                                <span id="release-height" class="angle-display">--°</span>
-                            </div>
-                            <div class="metric-bar">
-                                <div id="release-bar" class="progress-bar"></div>
-                            </div>
-                            <p class="metric-status" id="release-status">Optimal: 45-60°</p>
-                        </div>
-
-                        <div class="metric-card">
-                            <h3>Knee Bend</h3>
-                            <div class="metric-value">
-                                <span id="knee-angle" class="angle-display">--°</span>
-                            </div>
-                            <div class="metric-bar">
-                                <div id="knee-bar" class="progress-bar"></div>
-                            </div>
-                            <p class="metric-status" id="knee-status">Optimal: 100-130°</p>
-                        </div>
-
-                        <div class="metric-card">
-                            <h3>Body Alignment</h3>
-                            <div class="metric-value">
-                                <span id="alignment-score" class="angle-display">--</span>
-                            </div>
-                            <div class="metric-bar">
-                                <div id="alignment-bar" class="progress-bar"></div>
-                            </div>
-                            <p class="metric-status" id="alignment-status">Checking posture...</p>
-                        </div>
+                    <div class="filter-buttons">
+                        <button class="filter-btn-simple active" data-filter="normal" title="Normal camera view">
+                            <span class="filter-emoji">👁️</span>
+                            <span>Normal</span>
+                            <kbd>N</kbd>
+                        </button>
+                        
+                        <button class="filter-btn-simple" data-filter="sobel" title="See body outlines">
+                            <span class="filter-emoji">📐</span>
+                            <span>Outline</span>
+                            <kbd>E</kbd>
+                        </button>
+                        
+                        <button class="filter-btn-simple" data-filter="canny" title="Clean edge view">
+                            <span class="filter-emoji">✨</span>
+                            <span>Edges</span>
+                            <kbd>C</kbd>
+                        </button>
+                        
+                        <button class="filter-btn-simple" data-filter="xray" title="Cool skeleton view!">
+                            <span class="filter-emoji">🦴</span>
+                            <span>X-Ray</span>
+                            <kbd>X</kbd>
+                        </button>
+                        
+                        <button class="filter-btn-simple" data-filter="blur" title="Smooth view">
+                            <span class="filter-emoji">🌫️</span>
+                            <span>Blur</span>
+                            <kbd>B</kbd>
+                        </button>
+                        
+                        <button class="filter-btn-simple" data-filter="sharpen" title="Sharper image">
+                            <span class="filter-emoji">🔪</span>
+                            <span>Sharp</span>
+                            <kbd>S</kbd>
+                        </button>
                     </div>
                 </div>
 
-                <!-- Session Progress -->
-                <div class="session-progress-panel hidden" id="session-progress-panel">
-                    <h3>🎯 Session Progress</h3>
-                    <div class="shots-grid" id="shots-grid">
-                        <!-- Shot thumbnails will be added here -->
+                <!-- Session Progress (Compact) -->
+                <div id="session-panel" class="session-panel hidden">
+                    <h3>🎯 Shot Challenge</h3>
+                    <div class="shots-mini-grid" id="shots-grid">
+                        <!-- Shots appear here -->
                     </div>
-                    <div class="session-stats">
-                        <div class="stat-box">
-                            <span class="stat-label">Best Shot</span>
-                            <span class="stat-value" id="best-shot">--</span>
+                    <div class="session-stats-mini">
+                        <div class="stat-mini">
+                            <span class="stat-mini-label">Best</span>
+                            <span id="best-shot" class="stat-mini-value">--</span>
                         </div>
-                        <div class="stat-box">
-                            <span class="stat-label">Average</span>
-                            <span class="stat-value" id="session-avg">--</span>
-                        </div>
-                        <div class="stat-box">
-                            <span class="stat-label">Consistency</span>
-                            <span class="stat-value" id="consistency">--</span>
+                        <div class="stat-mini">
+                            <span class="stat-mini-label">Avg</span>
+                            <span id="session-avg" class="stat-mini-value">--</span>
                         </div>
                     </div>
-                    <button id="complete-session-btn" class="btn btn-success" disabled>
-                        Complete Session & View Report
+                    <button id="complete-session-btn" class="btn btn-success btn-small" disabled>
+                        ✅ Finish Challenge
                     </button>
                 </div>
 
-                <!-- Progress Tracking -->
-                <div class="progress-tracking-panel">
-                    <h3>📈 Progress Tracking</h3>
-                    <canvas id="progress-chart" width="400" height="200"></canvas>
-                    <div class="progress-stats">
-                        <div class="stat-box">
-                            <span class="stat-label">Sessions Today</span>
-                            <span class="stat-value" id="sessions-today">0</span>
+                <!-- Progress Chart (Compact) -->
+                <div class="progress-panel">
+                    <h3>📈 Your Progress</h3>
+                    <canvas id="progress-chart" height="150"></canvas>
+                    <div class="progress-stats-mini">
+                        <div class="stat-mini">
+                            <span class="stat-mini-label">Today</span>
+                            <span id="sessions-today" class="stat-mini-value">0</span>
                         </div>
-                        <div class="stat-box">
-                            <span class="stat-label">This Week</span>
-                            <span class="stat-value" id="sessions-week">0</span>
+                        <div class="stat-mini">
+                            <span class="stat-mini-label">Week</span>
+                            <span id="sessions-week" class="stat-mini-value">0</span>
                         </div>
-                        <div class="stat-box">
-                            <span class="stat-label">Improvement</span>
-                            <span class="stat-value improvement" id="improvement">--</span>
+                        <div class="stat-mini">
+                            <span class="stat-mini-label">Change</span>
+                            <span id="improvement" class="stat-mini-value improvement">--</span>
                         </div>
                     </div>
-                </div>
-
-                <!-- Tips Section -->
-                <div class="tips-container">
-                    <h3>💡 Training Tips</h3>
-                    <ul id="tips-list">
-                        <li>Stand 6-8 feet away from your camera</li>
-                        <li>Ensure your full body is visible in the frame</li>
-                        <li>Use good lighting for better tracking</li>
-                        <li>Practice your shooting motion slowly at first</li>
-                        <li>Try different filters to visualize your form</li>
-                    </ul>
                 </div>
             </div>
         </main>
 
+        <!-- Celebration Overlay -->
+        <div id="celebration-overlay" class="celebration-overlay hidden">
+            <div class="celebration-bg"></div>
+            <div id="confetti-container" class="confetti-container"></div>
+            <div class="celebration-box">
+                <h2 id="celebration-title">🏆 AMAZING! 🏆</h2>
+                <p id="celebration-message">You've got pro-level form!</p>
+                <div class="celebration-score">
+                    <span id="celebration-score">95</span>/100
+                </div>
+                <button id="celebration-close" class="btn btn-primary btn-large">
+                    Keep Training! 💪
+                </button>
+            </div>
+        </div>
+
         <!-- Footer -->
         <footer>
-            <p>Powered by MediaPipe Pose Detection & OpenCV.js | Module 7 Enhanced Edition</p>
-            <p class="note">Building on Module 6 with advanced computer vision filters and real-time processing</p>
+            <p>Powered by AI Computer Vision | Built for Young Athletes</p>
         </footer>
     </div>
 
-    <!-- MediaPipe & OpenCV Scripts -->
+    <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
     <script src="https://docs.opencv.org/4.5.2/opencv.js"></script>
-    
-    <!-- Chart.js for Progress Tracking -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
-    
-    <!-- Main Application Script -->
     <script src="app.js"></script>
     
-    <!-- Audio Elements -->
+    <!-- Sounds -->
+    <audio id="capture-sound" preload="auto">
+        <source src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" type="audio/mpeg">
+    </audio>
     <audio id="crowd-cheer" preload="auto">
         <source src="https://assets.mixkit.co/active_storage/sfx/2567/2567-preview.mp3" type="audio/mpeg">
-    </audio>
-    <audio id="achievement-sound" preload="auto">
-        <source src="https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3" type="audio/mpeg">
     </audio>
 </body>
 </html>
