@@ -383,7 +383,171 @@ const StorageManager = {
         return Math.max(...todaySessions.map(s => s.averageScore));
     }
 };
+
 /**
+ * Session Manager
+ * Handles active shooting sessions and shot tracking
+ */
+const SessionManager = {
+    isSessionActive: false,
+    currentShot: 0,
+    maxShots: 10,
+    shots: [],
+
+    /**
+     * Start a new 10-shot session
+     */
+    startSession() {
+        this.isSessionActive = true;
+        this.currentShot = 0;
+        this.shots = [];
+
+        document.getElementById('session-counter').classList.remove('hidden');
+        document.getElementById('session-btn').disabled = true;
+        document.getElementById('current-shot').textContent = '0';
+        document.getElementById('shot-score-display').textContent = '--';
+    },
+
+    /**
+     * Capture a shot during session
+     */
+    captureShot(formData) {
+        if (!this.isSessionActive || this.currentShot >= this.maxShots) {
+            return false;
+        }
+
+        this.currentShot++;
+        this.shots.push(formData);
+
+        document.getElementById('current-shot').textContent = this.currentShot;
+        document.getElementById('shot-score-display').textContent = formData.overallScore;
+
+        if (this.currentShot >= this.maxShots) {
+            this.completeSession();
+        }
+
+        return true;
+    },
+
+    /**
+     * Complete the session
+     */
+    completeSession() {
+        this.isSessionActive = false;
+
+        const sessionStats = this.calculateSessionStats();
+        const newAchievements = StorageManager.checkAchievements(
+            { averageScore: sessionStats.averageScore },
+            StorageManager.getAllSessions()
+        );
+
+        StorageManager.saveSession(sessionStats);
+
+        this.showSessionSummary(sessionStats, newAchievements);
+
+        document.getElementById('session-counter').classList.add('hidden');
+        document.getElementById('session-btn').disabled = false;
+
+        if (window.updateDashboard) {
+            window.updateDashboard();
+        }
+    },
+
+    /**
+     * Calculate session statistics
+     */
+    calculateSessionStats() {
+        const scores = this.shots.map(s => s.overallScore);
+        const averageScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+
+        const bestShotIndex = scores.indexOf(Math.max(...scores));
+        const worstShotIndex = scores.indexOf(Math.min(...scores));
+
+        const metrics = {
+            avgElbow: Math.round(this.shots.reduce((sum, s) => sum + s.elbowAngle, 0) / this.shots.length),
+            avgRelease: Math.round(this.shots.reduce((sum, s) => sum + s.releaseHeight, 0) / this.shots.length),
+            avgKnee: Math.round(this.shots.reduce((sum, s) => sum + s.kneeAngle, 0) / this.shots.length),
+            avgAlignment: Math.round(this.shots.reduce((sum, s) => sum + s.alignment, 0) / this.shots.length)
+        };
+
+        const variance = this.calculateVariance(scores);
+        const consistency = Math.max(0, 100 - variance);
+
+        const tips = this.generateTips(metrics, averageScore);
+
+        return {
+            shots: this.shots,
+            averageScore,
+            bestShot: { number: bestShotIndex + 1, score: scores[bestShotIndex] },
+            worstShot: { number: worstShotIndex + 1, score: scores[worstShotIndex] },
+            metrics,
+            consistency,
+            tips
+        };
+    },
+
+    /**
+     * Generate personalized tips
+     */
+    generateTips(metrics, avgScore) {
+        const tips = [];
+
+        if (metrics.avgElbow < 85 || metrics.avgElbow > 95) {
+            tips.push({
+                icon: '💪',
+                title: 'Elbow Position',
+                text: `Your average elbow angle is ${metrics.avgElbow}°. Aim for 85-95° for optimal shooting form.`
+            });
+        }
+
+        if (metrics.avgRelease < 45) {
+            tips.push({
+                icon: '📐',
+                title: 'Release Height',
+                text: 'Try releasing the ball higher. A higher release point makes your shot harder to block.'
+            });
+        }
+
+        if (metrics.avgKnee < 100 || metrics.avgKnee > 130) {
+            tips.push({
+                icon: '🦵',
+                title: 'Knee Bend',
+                text: 'Focus on consistent knee bend (100-130°) to generate power from your legs.'
+            });
+        }
+
+        if (metrics.avgAlignment < 90) {
+            tips.push({
+                icon: '⚖️',
+                title: 'Body Alignment',
+                text: 'Keep your shoulders level. Good alignment improves accuracy and consistency.'
+            });
+        }
+
+        if (avgScore >= 85) {
+            tips.push({
+                icon: '🎯',
+                title: 'Excellent Work!',
+                text: 'Your form is excellent! Keep practicing to maintain this level of consistency.'
+            });
+        } else if (avgScore >= 70) {
+            tips.push({
+                icon: '👍',
+                title: 'Good Progress',
+                text: 'You\'re doing well! Focus on the highlighted areas to reach elite level.'
+            });
+        } else {
+            tips.push({
+                icon: '💡',
+                title: 'Keep Practicing',
+                text: 'Focus on one aspect at a time. Slow, deliberate practice builds muscle memory.'
+            });
+        }
+
+        return tips;
+    },
+
+    /**
      * Show session summary modal/overlay
      */
     showSessionSummary(stats, newAchievements) {
