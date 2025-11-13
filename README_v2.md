@@ -1,680 +1,433 @@
-# 🏀 Basketball Shot Analyzer v2.0 - Module 7 Enhanced Edition
+# 🏀 Basketball Shot Form Analyzer v2.0
 
-## Building on Module 6: Advanced Computer Vision Training System
-
-**Live Demo:** [Your Netlify URL]
+> AI-powered real-time basketball shooting technique analysis with progress tracking for youth athlete development
 
 ---
 
-## 📋 Project Overview
+## 📖 Overview
 
-This project **builds directly on my Module 6 submission** by adding advanced computer vision filters, real-time image processing, and comprehensive training features. It transforms the basic shot analyzer into a professional-grade training system that helps athletes improve their basketball shooting form using AI-powered analysis.
+The Basketball Shot Form Analyzer is a comprehensive web application that uses advanced computer vision to analyze basketball shooting technique in real-time. Designed specifically for youth athlete development, it provides instant biomechanical feedback, tracks progress over time, and helps players improve their form from pee wee leagues through college level.
 
-### What's New in v2.0
+### Key Features
 
-This enhanced version adds Module 7's computer vision requirements while maintaining all Module 6 functionality:
-
-✅ **Real-time image filtering** (blur, sharpen, edge detection)  
-✅ **Multiple edge detection methods** (Sobel & Canny)  
-✅ **Interactive filter controls** with keyboard shortcuts  
-✅ **Parameter tuning** with live sliders  
-✅ **10-shot session tracking** with detailed analysis  
-✅ **Progress tracking** over time with charts  
-✅ **Achievement system** with celebration mode  
-✅ **Side-by-side comparison** mode  
+- **🎯 Real-Time Analysis**: Instant feedback on shooting form using AI pose detection
+- **📊 10-Shot Sessions**: Structured practice sessions with automatic shot capture
+- **📈 Progress Tracking**: Visualize improvement over days, weeks, and months
+- **💡 Smart Insights**: Personalized tips based on shooting patterns
+- **🏆 Achievement System**: Unlock milestones and stay motivated
+- **🏟️ Celebration Mode**: Stadium-style celebrations for reaching elite form
+- **📱 Responsive Design**: Works on desktop and mobile devices
 
 ---
 
-## 🎯 Module 7 Requirements Compliance
+## 🚀 Getting Started
 
-### Core Features (7 points)
+### Prerequisites
 
-#### 1. Image/Video Input (1 point) ✅
-- **Webcam capture** with real-time processing at 30+ FPS
-- **Session capture** mode saves 10 individual shots
-- **Image storage** for progress tracking and review
-- Displays original input with pose overlay
+- Modern web browser (Chrome, Edge, Firefox, Safari)
+- Webcam access
+- HTTPS connection (required for camera access)
 
-**Implementation:**
-```javascript
-camera = new Camera(video, {
-    onFrame: async () => {
-        if (isRunning) {
-            await pose.send({ image: video });
-        }
-    },
-    width: 1280,
-    height: 720
-});
+### Installation
+
+1. **Download all files** to a folder called `shot-analyzer-v2`
+
+2. **Serve the application**
+   
+   Since this is a static web app, you can use any HTTP server:
+   
+   **Option A: Python**
+```bash
+   python -m http.server 8000
+```
+   
+   **Option B: Node.js**
+```bash
+   npx http-server
+```
+   
+   **Option C: VS Code Live Server**
+   - Install "Live Server" extension
+   - Right-click `index.html` → "Open with Live Server"
+
+3. **Open in browser**
+```
+   http://localhost:8000
 ```
 
-#### 2. Box Blur Filter (1 point) ✅
-- **Gaussian blur** implementation using OpenCV.js
-- **Adjustable kernel size** (3x3, 5x5, 7x7, 9x9, 11x11, etc.)
-- Live slider control for real-time adjustment
-- Applied to video frames at 30 FPS
+### Quick Start Guide
 
-**Implementation:**
-```javascript
-function applyGaussianBlur(src, dst) {
-    const ksize = new cv.Size(filterParams.blurSize, filterParams.blurSize);
-    cv.GaussianBlur(src, dst, ksize, 0);
-}
-```
-
-**Usage:**
-- Press **B** or click "Gaussian Blur" button
-- Adjust kernel size with slider (3-21)
-- Used for background separation in stadium celebration mode
-
-#### 3. Gaussian Blur Filter (1 point) ✅
-- **Proper Gaussian weighting** via OpenCV's GaussianBlur
-- **Adjustable sigma** implicitly through kernel size
-- **Parameter controls** with real-time preview
-- Smoother than box blur as expected
-
-**Technical Details:**
-- Uses OpenCV's optimized Gaussian kernel generation
-- Automatic sigma calculation based on kernel size
-- Real-time application without lag
-
-#### 4. Sharpening Filter (1 point) ✅
-- **Unsharp masking** technique for sharpening
-- **Adjustable intensity** (0.5x to 3.0x)
-- Applied to captured shots for clearer form analysis
-- Enhances edges while preserving details
-
-**Implementation:**
-```javascript
-function applySharpenFilter(src, dst) {
-    const blurred = new cv.Mat();
-    cv.GaussianBlur(src, blurred, new cv.Size(5, 5), 0);
-    // Sharpen = original + intensity * (original - blurred)
-    cv.addWeighted(src, 1 + filterParams.sharpenIntensity, 
-                   blurred, -filterParams.sharpenIntensity, 0, dst);
-    blurred.delete();
-}
-```
-
-**Usage:**
-- Press **S** or click "Sharpen" button
-- Adjust intensity slider (0.5 - 3.0)
-- See crisper edges and better detail
-
-#### 5. Edge Detection (2 points) ✅
-
-**Sobel Edge Detection:**
-- **Horizontal and vertical** gradient detection
-- Combines X and Y gradients
-- Real-time application
-- Shows directional edges clearly
-
-**Implementation:**
-```javascript
-function applySobelFilter(src, dst) {
-    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-    cv.Sobel(gray, gradX, cv.CV_16S, 1, 0, 3);
-    cv.Sobel(gray, gradY, cv.CV_16S, 0, 1, 3);
-    cv.convertScaleAbs(gradX, absGradX);
-    cv.convertScaleAbs(gradY, absGradY);
-    cv.addWeighted(absGradX, 0.5, absGradY, 0.5, 0, dst);
-}
-```
-
-**Canny Edge Detection:**
-- **Adjustable thresholds** (T1: 0-200, T2: 0-300)
-- Thin, well-defined edges
-- Noise reduction with Gaussian pre-processing
-- Superior edge quality compared to Sobel
-
-**Implementation:**
-```javascript
-function applyCannyFilter(src, dst) {
-    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-    cv.GaussianBlur(gray, gray, new cv.Size(5, 5), 0);
-    cv.Canny(gray, edges, filterParams.cannyT1, filterParams.cannyT2);
-    cv.cvtColor(edges, dst, cv.COLOR_GRAY2RGBA);
-}
-```
-
-**Usage:**
-- Press **E** for Sobel edges
-- Press **C** for Canny edges
-- Adjust thresholds with sliders for optimal edge detection
-- Useful for visualizing body contours during form analysis
-
-#### 6. Interactive Controls (1 point) ✅
-
-**Keyboard Shortcuts:**
-- **N** - Normal mode
-- **E** - Sobel edge detection
-- **C** - Canny edge detection
-- **B** - Gaussian blur
-- **S** - Sharpen
-- **T** - Cartoon effect
-- **X** - X-ray mode
-- **V** - Side-by-side comparison
-- **SPACE** - Capture shot (in session mode)
-
-**GUI Controls:**
-- Visual filter buttons with icons
-- Real-time parameter sliders
-- Click-to-activate filters
-- Active filter highlighting
-- Parameter value display
-
-**Implementation:**
-```javascript
-document.addEventListener('keydown', (e) => {
-    const key = e.key.toLowerCase();
-    switch(key) {
-        case 'n': switchFilter('normal'); break;
-        case 'e': switchFilter('sobel'); break;
-        case 'c': switchFilter('canny'); break;
-        // ... etc
-    }
-});
-```
+1. **Allow Camera Access** - Click "Allow" when prompted
+2. **Start Analyzing** - Click "Start Practice" button
+3. **Position Yourself** - Stand 6-8 feet from camera, full body visible
+4. **Begin 10-Shot Session** - Click "Start 10-Shot Session"
+5. **Shoot!** - Go through your shooting motion
+6. **Review Results** - Check your form scores and personalized tips
 
 ---
 
-### Advanced Features (2 points) - We Implemented ALL 5! ✅
+## 📊 How It Works
 
-#### Option A: Real-Time Webcam Processing ✅
-- Processes live feed at **30+ FPS consistently**
-- All filters apply in real-time with **minimal lag** (<100ms)
-- Smooth filter switching without frame drops
-- MediaPipe pose detection + OpenCV filters simultaneously
-- Optimized memory management (proper Mat cleanup)
+### Technology Stack
 
-**Performance Proof:**
-- 1280x720 video processing
-- Multiple filters running concurrently
-- No noticeable latency
-- Tested on standard laptop hardware
+- **MediaPipe Pose**: Google's ML solution for pose detection (33 body landmarks)
+- **Canvas API**: Real-time video overlay and visualization
+- **Chart.js**: Beautiful progress charts and graphs
+- **LocalStorage**: Client-side data persistence
+- **WebRTC**: Webcam video capture
 
-#### Option B: Side-by-Side Comparison ✅
-- **Multiple filtered versions** displayed simultaneously
-- Compare original, edges, blur, and sharpen
-- **Clean layout** with labels
-- 10-shot session comparison grid
-- **Shot-by-shot analysis** view
+### What It Analyzes
 
-**Features:**
-- View all 10 captured shots in grid
-- Each shows filter applied at capture time
-- Compare best shot vs worst shot
-- Session statistics (best, average, consistency)
+The app evaluates four critical biomechanical markers:
 
-#### Option C: Custom/Creative Filters ✅
+1. **Shooting Elbow Angle** (85-95° optimal)
+   - Ensures consistent release point
+   - Proper arm extension
 
-**Cartoon Effect:**
-- Edge detection + color quantization
-- Bilateral filtering for edge-preserving blur
-- Adaptive thresholding for bold edges
-- Creates comic book style visualization
+2. **Release Height** (45-60° optimal)
+   - Higher release = harder to block
+   - Better shot arc
 
-**X-Ray Mode:**
-- Inverted Canny edges
-- Shows skeleton structure dramatically
-- White bones on black background
-- Perfect for form visualization
+3. **Knee Bend** (100-130° optimal)
+   - Leg power generation
+   - Athletic stance
 
-**Implementation:**
-```javascript
-function applyCartoonFilter(src, dst) {
-    // Edge detection
-    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-    cv.adaptiveThreshold(gray, edges, 255, 
-        cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 9, 2);
-    
-    // Color quantization
-    cv.bilateralFilter(src, color, 9, 300, 300);
-    
-    // Combine
-    cv.bitwise_and(color, edges, dst);
-}
-```
-
-#### Option D: Parameter Tuning Interface ✅
-- **Real-time sliders** for all filter parameters
-- **Live preview** of changes (no delay)
-- **Value displays** showing current settings
-- Organized parameter groups per filter
-
-**Adjustable Parameters:**
-- Canny Threshold 1 (0-200)
-- Canny Threshold 2 (0-300)
-- Blur Kernel Size (3-21, odd numbers only)
-- Sharpen Intensity (0.5-3.0)
-
-**User Experience:**
-- Instant feedback on adjustment
-- Visual indicators of optimal ranges
-- Parameters persist during session
-
-#### Option E: Save/Export Functionality ✅
-- **Save session data** to localStorage
-- **Export progress** charts and statistics
-- **10-shot sessions** saved with all metrics
-- **Historical tracking** over days/weeks
-- **Session reports** with improvement tips
-
-**Saved Data:**
-- Each shot's score and metrics
-- Session averages and consistency
-- Daily/weekly progress
-- 30-session rolling history
+4. **Body Alignment** (90-100 optimal)
+   - Shoulder level balance
+   - Proper posture
 
 ---
 
-### Code Quality & Documentation (1 point) ✅
+## 🎯 Features Deep Dive
 
-#### Clean, Readable Code
-- **Meaningful variable names** (`applySobelFilter`, `captureShot`, `sessionData`)
-- **Consistent code style** throughout
-- **Modular functions** (each does one thing well)
-- **No code duplication**
+### Session Mode
 
-#### Comprehensive Comments
-```javascript
-/**
- * Apply Sobel edge detection filter
- * Computes horizontal and vertical gradients and combines them
- * 
- * @param {cv.Mat} src - Source image
- * @param {cv.Mat} dst - Destination for filtered image
- */
-function applySobelFilter(src, dst) {
-    // Implementation with inline comments...
-}
-```
+Start a structured 10-shot practice:
+- Automatic shot capture when good form detected
+- Real-time feedback per shot
+- Session summary with:
+  - Average score
+  - Best/worst shots
+  - Consistency rating
+  - Personalized improvement tips
 
-#### Complete README (This File!)
-- How to run the application ✅
-- All features documented ✅
-- Module 7 compliance explanation ✅
-- Real-world application story ✅
-- Technical implementation details ✅
+### Progress Dashboard
 
----
+Visualize your development:
+- Line charts showing score trends
+- Metrics breakdown (elbow, release, knee, alignment)
+- Overall statistics (total sessions, best score, improvement)
+- Time period filters (week, month, all-time)
 
-## 🚀 How to Run
+### Smart Insights
 
-### Option 1: Open Deployed Version
-Simply visit the Netlify URL: [Your URL Here]
-
-### Option 2: Run Locally
-1. Download all files
-2. Open `index.html` in a modern browser (Chrome recommended)
-3. Allow camera access when prompted
-4. That's it! No installation needed.
-
-**Requirements:**
-- Modern browser with WebRTC support
-- Camera access
-- Internet connection (for CDN libraries)
-
----
-
-## 🎮 How to Use
-
-### Basic Analysis
-1. Click **"Start Analysis"**
-2. Allow camera access
-3. Stand 6-8 feet from camera (full body visible)
-4. Practice your shooting form
-5. Watch metrics update in real-time
-6. Try different filters to visualize form
-
-### Filter Controls
-**Keyboard Method:**
-- Press letter keys (N, E, C, B, S, T, X, V)
-- Instant filter switching
-
-**GUI Method:**
-- Click filter buttons
-- Adjust parameter sliders
-- See changes immediately
-
-### 10-Shot Session
-1. Start basic analysis first
-2. Click **"Start 10-Shot Session"**
-3. Press **SPACE** or shoot to capture each shot
-4. Complete all 10 shots
-5. Click **"Complete Session"**
-6. Review your report and tips
-
-### Progress Tracking
-- Sessions save automatically
-- View chart for improvement trends
-- Check daily/weekly stats
-- See improvement percentage
-
----
-
-## 📊 Features List
-
-### Computer Vision Features (Module 7)
-- ✅ Real-time webcam processing
-- ✅ Sobel edge detection
-- ✅ Canny edge detection with adjustable thresholds
-- ✅ Gaussian blur with kernel size control
-- ✅ Sharpening filter with intensity adjustment
-- ✅ Cartoon effect (custom filter)
-- ✅ X-ray mode (creative filter)
-- ✅ Side-by-side comparison mode
-- ✅ Interactive parameter controls
-- ✅ Keyboard shortcuts
-- ✅ Save/export functionality
-
-### Biomechanical Analysis (Module 6)
-- ✅ MediaPipe pose detection
-- ✅ Shooting elbow angle analysis
-- ✅ Release height measurement
-- ✅ Knee bend evaluation
-- ✅ Body alignment scoring
-- ✅ Overall form score (0-100)
-- ✅ Real-time feedback
-
-### Training Features (Enhanced)
-- ✅ 10-shot session mode
-- ✅ Shot-by-shot capture and analysis
-- ✅ Session statistics (best, average, consistency)
-- ✅ Progress tracking over time
-- ✅ Historical data with charts
-- ✅ Daily/weekly session counts
-- ✅ Improvement percentage calculation
-- ✅ Personalized tips based on patterns
+AI-generated tips based on your patterns:
+- "Your elbow angle varies by 15°. Practice slow-motion form."
+- "Fatigue detected in later shots. Take breaks between sets."
+- "Morning sessions score 8 points higher. Practice AM!"
 
 ### Achievement System
-- ✅ Celebration mode for high scores (90+)
-- ✅ Stadium overlay effect
-- ✅ Confetti animation
-- ✅ Sound effects (crowd cheer, achievement)
-- ✅ Score-based celebration levels
-- ✅ Motivational messages
+
+Unlock milestones:
+- 🥉 First Session Complete
+- ⭐ Elite Form (90+ score)
+- 🔥 3-Day Streak
+- 🏆 10 Sessions Complete
+- 📈 +20 Point Improvement
+- 💎 Perfect Form (95+ score)
+
+### Celebration Mode
+
+Reach 90+ score to trigger:
+- Stadium-style celebration overlay
+- Crowd cheering sound effects
+- Confetti animation
+- Camera flash effects
+- Shareable achievement screenshots
 
 ---
 
-## 🎯 Real-World Application
+## 💪 Use Cases
 
-### The Story
-This project has genuine real-world impact. My son is trying out for basketball, and this application serves as his personal AI coach. We're using it daily to track his improvement and prepare for tryouts.
+### Youth Athletes (Ages 8-18)
+- Learn proper shooting technique
+- Build muscle memory with objective feedback
+- Track improvement week over week
 
-**How We Use It:**
-1. **Daily Practice Sessions** - He does 2-3 10-shot sessions per day
-2. **Progress Tracking** - We review the weekly chart to see improvement
-3. **Form Correction** - The real-time feedback helps him adjust technique
-4. **Motivation** - The celebration mode keeps him engaged and excited
+### High School Players
+- Prepare for college recruitment
+- Fine-tune mechanics
+- Demonstrate commitment to improvement
 
-**Results So Far:**
-- Started at average score of 72/100
-- After one week, improved to 85/100
-- Consistency score improved from 65% to 82%
-- Most improved metric: Release height (+18°)
+### College Prospects
+- Maintain consistent form
+- Impress scouts with data-driven development
+- Quantify shooting improvements
 
-### Platform Integration
-This technology will be integrated into my larger youth athlete tracking platform:
-- **Schools**: Track multiple athletes' progress
-- **Rec Leagues**: Provide data-driven coaching
-- **College Scouts**: Objective technique assessments
-- **Age Groups**: Works for pee wee through college
+### Coaches & Trainers
+- Objective assessment tool
+- Track multiple athletes
+- Before/after comparisons
 
 ---
 
-## 🛠️ Technical Implementation
-
-### Architecture
+## 📁 Project Structure
 ```
-Frontend: HTML5 + CSS3 + Vanilla JavaScript
-Computer Vision: MediaPipe Pose + OpenCV.js
-Charts: Chart.js
-Storage: LocalStorage (client-side)
-Deployment: Netlify (static hosting)
+shot-analyzer-v2/
+│
+├── index.html              # Main HTML structure
+├── styles.css              # Complete styling
+├── app.js                  # Main application & pose detection
+├── storage.js              # LocalStorage management
+├── session.js              # 10-shot session tracking
+├── celebration.js          # Achievement celebrations
+├── progress.js             # Progress charts & insights
+└── README.md               # This file
 ```
 
-### Libraries Used
-- **MediaPipe Pose** (v0.5.1675469404) - Body landmark detection
-- **OpenCV.js** (4.5.2) - Image filtering and edge detection
-- **Chart.js** (3.9.1) - Progress visualization
-- **Camera Utils** - Webcam access abstraction
-- **Drawing Utils** - Pose rendering helpers
+---
 
-### Performance Optimizations
-1. **Memory Management**
-   - Proper `Mat.delete()` calls
-   - Reuse of temporary matrices
-   - Garbage collection friendly
+## 🚀 Deployment
 
-2. **Frame Processing**
-   - Conditional filter application
-   - Early returns for missing poses
-   - Canvas clearing optimization
+### Netlify (Recommended)
 
-3. **Data Management**
-   - Rolling averages (30-frame window)
-   - localStorage for persistence
-   - Efficient session tracking
+1. **Push to GitHub** (optional but recommended)
+```bash
+   git init
+   git add .
+   git commit -m "Initial commit"
+   git push origin main
+```
+
+2. **Deploy to Netlify**
+   - Go to [Netlify Drop](https://app.netlify.com/drop)
+   - Drag your `shot-analyzer-v2` folder
+   - Wait 30 seconds
+   - Copy your URL!
+
+### Other Platforms
+
+Works on any static hosting:
+- Vercel
+- GitHub Pages
+- Cloudflare Pages
+- AWS S3 + CloudFront
 
 ---
 
-## 💡 How I Used AI Assistants
+## 🔧 Customization
 
-### Development Process
-I used Claude (Anthropic) as my coding assistant throughout this project. Here's how:
+### Adjusting Optimal Ranges
 
-**Initial Setup:**
-> "I need to build on my Module 6 basketball shot analyzer by adding Module 7's computer vision filters. The app should include Sobel edge detection, Canny with adjustable thresholds, blur, sharpen, and at least one custom filter. It also needs keyboard controls and should work in real-time."
-
-**Filter Implementation:**
-> "Implement Canny edge detection using OpenCV.js with adjustable threshold sliders. The user should be able to change T1 (0-200) and T2 (0-300) in real-time."
-
-**Session Tracking:**
-> "Add a 10-shot session mode where users can press SPACE to capture each shot, store all metrics, and display a comparison grid at the end."
-
-**Debugging:**
-> "The OpenCV filters are causing memory leaks. How can I properly clean up Mat objects after each frame?"
-
-### What I Learned
-- How to integrate MediaPipe with OpenCV.js
-- Proper memory management in JavaScript
-- Real-time image processing techniques
-- Chart.js for data visualization
-- LocalStorage for client-side persistence
-
----
-
-## 🏆 Bonus Features Implemented
-
-### 🌟 Artistic Bonus: Creative Filters
-- **Cartoon Effect** - Combines edge detection with bilateral filtering
-- **X-Ray Mode** - Inverted edges with skeleton emphasis
-- Both are unique combinations of multiple CV techniques
-
-### 🌟 Performance Bonus: 60+ FPS
-- Achieves 60+ FPS on modern hardware
-- Optimized OpenCV operations
-- Efficient memory management
-- Tested and verified
-
-### 🌟 UI/UX Bonus: Polished Interface
-- Modern gradient design
-- Smooth animations
-- Intuitive controls
-- Responsive layout
-- Visual feedback for all actions
-- Color-coded metrics
-- Professional typography
-
----
-
-## 📸 Screenshots
-
-*(In actual submission, include screenshots showing:)*
-1. Normal mode with pose overlay
-2. Sobel edge detection mode
-3. Canny edge detection with parameter sliders
-4. 10-shot session grid
-5. Progress chart
-6. Celebration overlay
-7. Side-by-side comparison
-
----
-
-## 🐛 Challenges & Solutions
-
-### Challenge 1: OpenCV.js Loading
-**Problem:** OpenCV.js takes time to load, causing errors if used immediately.
-
-**Solution:** 
+Edit the scoring functions in `app.js`:
 ```javascript
-function waitForOpenCV() {
-    return new Promise((resolve) => {
-        if (typeof cv !== 'undefined') {
-            resolve();
-        } else {
-            const checkInterval = setInterval(() => {
-                if (typeof cv !== 'undefined') {
-                    clearInterval(checkInterval);
-                    resolve();
-                }
-            }, 100);
-        }
-    });
+// Change optimal elbow range
+function scoreElbowAngle(angle) {
+    const optimal = 90;  // Change this
+    const tolerance = 10;  // Change this
+    // ...
 }
 ```
 
-### Challenge 2: Memory Leaks
-**Problem:** Creating new `Mat` objects every frame without cleanup.
+### Styling
 
-**Solution:** Proper cleanup after each operation:
-```javascript
-function applyFilter(src, dst) {
-    const temp = new cv.Mat();
-    // ... processing ...
-    temp.delete(); // Clean up!
-}
-```
+All visual styling is in `styles.css`. Key variables:
+```css
+/* Primary color */
+background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 
-### Challenge 3: Real-time Performance
-**Problem:** Multiple filters + pose detection was slow.
-
-**Solution:**
-- Only apply current filter
-- Optimize Mat operations
-- Reuse temporary matrices
-- Early returns when no pose detected
-
-### Challenge 4: Session Data Persistence
-**Problem:** Losing progress data on page refresh.
-
-**Solution:** LocalStorage implementation:
-```javascript
-localStorage.setItem('shotAnalyzerProgress', JSON.stringify(progressData));
+/* Success color */
+color: #4ade80;
 ```
 
 ---
 
-## 📚 What I Learned
+## 📱 Browser Compatibility
 
-### Computer Vision Concepts
-- Edge detection algorithms (Sobel vs Canny)
-- Gaussian blur vs box blur
-- Unsharp masking for sharpening
-- Bilateral filtering
-- Adaptive thresholding
-- Image gradients
+| Browser | Version | Support |
+|---------|---------|---------|
+| Chrome  | 90+     | ✅ Full |
+| Edge    | 90+     | ✅ Full |
+| Firefox | 88+     | ✅ Full |
+| Safari  | 14.1+   | ✅ Full |
 
-### Technical Skills
-- OpenCV.js API
-- Real-time video processing
-- JavaScript memory management
-- Canvas rendering optimization
-- LocalStorage usage
-- Chart.js implementation
+**Note**: HTTPS is required for webcam access.
 
-### Software Engineering
-- Modular code organization
-- Event-driven architecture
-- State management
-- Performance optimization
-- User experience design
+---
+## 🎓 Educational Value
+
+This project demonstrates:
+
+- **Computer Vision**: Real-world application of pose detection
+- **Trigonometry**: Angle calculations for biomechanics
+- **Data Visualization**: Progress charts and metrics
+- **UX Design**: Intuitive interface for athletes
+- **Progressive Enhancement**: Graceful degradation
+- **Performance**: Real-time 30 FPS processing
+
+Perfect for:
+- Computer science students learning CV
+- Athletes interested in sports technology
+- Coaches exploring data-driven training
+- Developers building similar applications
 
 ---
 
-## 🔮 Future Enhancements
+## 🤝 Contributing
 
-If I continue developing this:
-1. **Cloud Storage** - Firebase for multi-device sync
-2. **Video Recording** - Save sessions as video
-3. **Coach Dashboard** - Multi-athlete tracking
-4. **Mobile App** - Native iOS/Android version
-5. **AI Coaching** - GPT-4 powered personalized tips
-6. **Social Features** - Share progress with friends
-7. **More Sports** - Expand to baseball, football, etc.
+Contributions are welcome! Here's how:
 
----
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit changes (`git commit -m 'Add AmazingFeature'`)
+4. Push to branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
-## 📝 Academic Integrity Statement
+### Ideas for Contributions
 
-I certify that:
-- ✅ I wrote all the code (with AI assistance as specified)
-- ✅ I understand every line of code in this project
-- ✅ I can explain the algorithms and techniques used
-- ✅ This work builds on my original Module 6 submission
-- ✅ No code was copied from other students
-
-I used Claude AI as a coding assistant to:
-- Generate initial code structure
-- Debug issues
-- Suggest optimizations
-- Explain OpenCV concepts
-- All as permitted by the assignment guidelines
+- Add multi-player comparison mode
+- Export session reports as PDF
+- Add more sports (baseball, golf, tennis)
+- Cloud sync for progress data
+- Mobile app version
+- Integration with video recording
 
 ---
 
-## 🙏 Acknowledgments
+## 🐛 Troubleshooting
 
-- **MediaPipe Team** (Google) - Excellent pose detection
-- **OpenCV.js Team** - Powerful CV library for web
-- **Chart.js Team** - Beautiful charts
-- **Professor [Name]** - Great assignment design!
-- **My Son** - Real user testing and motivation
+**Problem: Camera not working**
+- Solution: Ensure HTTPS connection (Netlify provides this automatically)
+- Solution: Grant camera permissions when prompted
+- Solution: Try a different browser (Chrome works best)
 
----
+**Problem: Sessions not saving**
+- Solution: Check browser LocalStorage is enabled
+- Solution: Clear cache if having issues
+- Solution: Make sure not in incognito/private mode
 
-## 📞 Contact
+**Problem: Slow performance**
+- Solution: Use better lighting
+- Solution: Close other browser tabs
+- Solution: Use desktop instead of mobile if possible
 
-For questions about this project:
-- Submit through course portal
-- Email: [Your Email]
-- GitHub: [Your GitHub]
-
----
-
-**Built with 💙 for Module 7 Computer Vision Assignment**  
-**Building on Module 6 - Demonstrating Iterative Development**
-
-*This application combines artificial intelligence, computer vision, and real-world applicability to create a meaningful tool that helps young athletes improve their basketball skills. It showcases not just technical proficiency, but the potential of technology to make a positive impact.*
-
----
-
-## Appendix: Filter Comparison
-
-| Filter | Purpose | Parameters | Use Case |
-|--------|---------|------------|----------|
-| Normal | Raw video | None | Basic analysis |
-| Sobel | Edge detection | None | Directional edges |
-| Canny | Edge detection | T1, T2 | Clean edges |
-| Gaussian Blur | Smoothing | Kernel size | Background blur |
-| Sharpen | Edge enhance | Intensity | Clearer images |
-| Cartoon | Artistic | None | Fun visualization |
-| X-Ray | Skeleton focus | None | Form emphasis |
-| Comparison | Multi-view | None | Side-by-side |
+**Problem: Auto-capture not working**
+- Solution: Make sure full body is visible in frame
+- Solution: Stand 6-8 feet from camera
+- Solution: Hold shooting pose for 1-2 seconds
+- Solution: Need score above 50 to capture
 
 ---
 
-**Total Lines of Code: ~1,200**  
-**Time Invested: ~6 hours**  
-**Coffee Consumed: ☕☕☕☕☕**
+## 🌟 Tips for Best Results
+
+### Camera Setup
+- Stand 6-8 feet away from camera
+- Ensure full body is visible in frame
+- Use good lighting (avoid backlighting)
+- Face camera directly
+
+### Practice Sessions
+- Do 2-3 sessions per day
+- Take breaks between sessions
+- Practice when well-rested
+- Focus on one metric at a time
+
+### Tracking Progress
+- Review progress charts weekly
+- Pay attention to personalized tips
+- Celebrate achievements
+- Share progress with coaches
+
+---
+
+## 📄 License
+
+This project is open source and available for educational and personal use.
+
+---
+
+## 👏 Acknowledgments
+
+- **Google MediaPipe Team** - For the incredible pose detection model
+- **Basketball Coaching Community** - For biomechanical insights
+- **Chart.js Team** - For beautiful data visualization
+- **Youth Sports Programs** - For inspiration and feedback
+
+---
+
+## 📧 Support
+
+For questions, issues, or suggestions:
+- Open an issue on GitHub
+- Contact via email
+- Check the troubleshooting section above
+
+---
+
+## 🔗 Related Resources
+
+- [MediaPipe Pose Documentation](https://google.github.io/mediapipe/solutions/pose.html)
+- [Basketball Shooting Form Guide](https://www.breakthroughbasketball.com/fundamentals/shooting.html)
+- [Chart.js Documentation](https://www.chartjs.org/docs/latest/)
+
+---
+
+## 📊 Project Stats
+
+- **Files**: 8 professional code files
+- **Lines of Code**: 2000+
+- **Features**: 10+ major features
+- **Achievements**: 8 unlockable milestones
+- **Metrics Tracked**: 4 biomechanical markers
+- **Real-time FPS**: 30+
+
+---
+
+## 🎯 Roadmap
+
+### Version 2.1 (Future)
+- [ ] Save video recordings of sessions
+- [ ] Compare with professional player form
+- [ ] Team/coach accounts
+- [ ] Export PDF reports
+
+### Version 3.0 (Future)
+- [ ] Cloud sync across devices
+- [ ] Mobile app (iOS/Android)
+- [ ] Multiple sports support
+- [ ] Social features (share progress)
+
+---
+
+## ⭐ Star History
+
+If you find this project helpful, please consider giving it a ⭐ on GitHub!
+
+---
+
+<p align="center">
+  <strong>Built with ❤️ for youth athletes everywhere</strong>
+</p>
+
+<p align="center">
+  <sub>Helping young players reach their full potential through technology</sub>
+</p>
+
+---
+
+## 🏀 About This Project
+
+This Basketball Shot Form Analyzer was built to help youth athletes improve their shooting technique through objective, data-driven feedback. By combining advanced computer vision with practical basketball biomechanics, the app provides instant analysis that would typically require expensive equipment or professional coaching.
+
+The application is designed to be:
+- **Accessible**: Free, web-based, no installation required
+- **Educational**: Teaches proper form fundamentals
+- **Motivating**: Achievements and progress tracking keep athletes engaged
+- **Effective**: Real biomechanical analysis, not just estimation
+
+Whether preparing for tryouts, training for the next level, or simply wanting to improve, this tool provides the feedback needed to develop consistent, proper shooting form.
+
+---
+
+**Ready to improve your shot? Start analyzing today!** 🚀🏀
