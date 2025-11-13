@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Basketball Shot Form Analyzer v2.0 | Youth Athlete Development</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="top-nav">
+        <div class="nav-container">
+            <div class="logo">
+                <h1>🏀 Shot Form Analyzer <span class="version">v2.0</span></h1>
+            </div>
+            <div class="nav-links">
+                <button class="nav-btn active" data-view="analyze">📹 Analyze</button>
+                <button class="nav-btn" data-view="progress">📊 Progress</button>
+                <button class="nav-btn" data-view="history">📚 History</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- ANALYZE VIEW -->
+        <div id="analyze-view" class="view-container active">
+            <div class="main-grid">
+                <!-- Video Section -->
+                <div class="video-section">
+                    <div class="video-wrapper">
+                        <video id="webcam" autoplay playsinline></video>
+                        <canvas id="output-canvas"></canvas>
+                        
+                        <!-- Session Counter Overlay -->
+                        <div id="session-counter" class="session-counter hidden">
+                            <div class="counter-content">
+                                <h2>Shot <span id="current-shot">0</span>/10</h2>
+                                <div class="shot-score">
+                                    <span id="shot-score-display">--</span>
+                                    <span class="score-label">/100</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Loading Overlay -->
+                        <div id="loading-overlay" class="loading">
+                            <div class="spinner"></div>
+                            <p>Initializing AI Model...</p>
+                        </div>
+
+                        <!-- Status Indicator -->
+                        <div id="status-indicator" class="status-indicator">
+                            <span class="status-dot"></span>
+                            <span id="status-text">Ready</span>
+                        </div>
+
+                        <!-- Celebration Overlay -->
+                        <div id="celebration-overlay" class="celebration-overlay hidden">
+                            <div class="celebration-content">
+                                <div class="confetti-container" id="confetti-container"></div>
+                                <h1 class="celebration-title">🎉 AMAZING FORM! 🎉</h1>
+                                <div class="celebration-message" id="celebration-message">
+                                    You've reached elite shooting form!
+                                </div>
+                                <div class="celebration-score">
+                                    <span id="celebration-score-value">95</span>/100
+                                </div>
+                                <button class="celebration-btn" id="close-celebration">Continue</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Controls -->
+                    <div class="controls">
+                        <button id="start-btn" class="btn btn-primary">
+                            <span>📹</span> Start Practice
+                        </button>
+                        <button id="session-btn" class="btn btn-success" disabled>
+                            <span>🎯</span> Start 10-Shot Session
+                        </button>
+                        <button id="stop-btn" class="btn btn-secondary" disabled>
+                            <span>⏸️</span> Stop
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Analytics Section -->
+                <div class="analytics-section">
+                    <!-- Quick Stats Card -->
+                    <div class="stats-card">
+                        <h3>📊 Today's Stats</h3>
+                        <div class="quick-stats">
+                            <div class="stat-item">
+                                <div class="stat-value" id="sessions-today">0</div>
+                                <div class="stat-label">Sessions</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="best-today">--</div>
+                                <div class="stat-label">Best Score</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="streak-days">0</div>
+                                <div class="stat-label">Day Streak 🔥</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Current Form Score -->
+                    <div class="metric-card primary-card">
+                        <div class="metric-header">
+                            <h3>Current Form Score</h3>
+                        </div>
+                        <div class="score-display">
+                            <div class="score-circle">
+                                <svg class="progress-ring" width="120" height="120">
+                                    <circle class="progress-ring-bg" cx="60" cy="60" r="52" />
+                                    <circle class="progress-ring-fill" id="score-ring" cx="60" cy="60" r="52" />
+                                </svg>
+                                <div class="score-text">
+                                    <span id="overall-score" class="score-number">--</span>
+                                    <span class="score-label">/ 100</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="form-feedback" class="feedback-text">
+                            Start analyzing to see your form score
+                        </div>
+                    </div>
+
+                    <!-- Key Metrics Grid -->
+                    <div class="metrics-grid">
+                        <div class="mini-metric-card">
+                            <h4>Shooting Elbow</h4>
+                            <div class="mini-metric-value" id="elbow-angle">--°</div>
+                            <div class="mini-metric-bar">
+                                <div id="elbow-bar" class="mini-progress-bar"></div>
+                            </div>
+                            <p class="mini-status" id="elbow-status">Target: 85-95°</p>
+                        </div>
+
+                        <div class="mini-metric-card">
+                            <h4>Release Height</h4>
+                            <div class="mini-metric-value" id="release-height">--°</div>
+                            <div class="mini-metric-bar">
+                                <div id="release-bar" class="mini-progress-bar"></div>
+                            </div>
+                            <p class="mini-status" id="release-status">Target: 45-60°</p>
+                        </div>
+
+                        <div class="mini-metric-card">
+                            <h4>Knee Bend</h4>
+                            <div class="mini-metric-value" id="knee-angle">--°</div>
+                            <div class="mini-metric-bar">
+                                <div id="knee-bar" class="mini-progress-bar"></div>
+                            </div>
+                            <p class="mini-status" id="knee-status">Target: 100-130°</p>
+                        </div>
+
+                        <div class="mini-metric-card">
+                            <h4>Body Alignment</h4>
+                            <div class="mini-metric-value" id="alignment-score">--</div>
+                            <div class="mini-metric-bar">
+                                <div id="alignment-bar" class="mini-progress-bar"></div>
+                            </div>
+                            <p class="mini-status" id="alignment-status">Checking...</p>
+                        </div>
+                    </div>
+
+                    <!-- Recent Achievements -->
+                    <div class="achievements-card">
+                        <h3>🏆 Recent Achievements</h3>
+                        <div id="recent-achievements" class="achievements-list">
+                            <p class="no-achievements">Complete sessions to unlock achievements!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PROGRESS VIEW -->
+        <div id="progress-view" class="view-container">
+            <div class="progress-container">
+                <div class="progress-header">
+                    <h2>📈 Your Progress</h2>
+                    <div class="time-selector">
+                        <button class="time-btn active" data-period="week">Week</button>
+                        <button class="time-btn" data-period="month">Month</button>
+                        <button class="time-btn" data-period="all">All Time</button>
+                    </div>
+                </div>
+
+                <!-- Progress Stats -->
+                <div class="progress-stats-grid">
+                    <div class="progress-stat-card">
+                        <div class="stat-icon">📊</div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="total-sessions">0</div>
+                            <div class="stat-title">Total Sessions</div>
+                        </div>
+                    </div>
+                    <div class="progress-stat-card">
+                        <div class="stat-icon">⭐</div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="avg-score">--</div>
+                            <div class="stat-title">Average Score</div>
+                        </div>
+                    </div>
+                    <div class="progress-stat-card">
+                        <div class="stat-icon">🎯</div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="best-score">--</div>
+                            <div class="stat-title">Best Score</div>
+                        </div>
+                    </div>
+                    <div class="progress-stat-card">
+                        <div class="stat-icon">📈</div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="improvement">--</div>
+                            <div class="stat-title">Improvement</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chart Container -->
+                <div class="chart-card">
+                    <h3>Form Score Trend</h3>
+                    <canvas id="progress-chart"></canvas>
+                </div>
+
+                <!-- Metrics Breakdown -->
+                <div class="metrics-breakdown">
+                    <h3>Metrics Breakdown</h3>
+                    <div class="breakdown-grid">
+                        <div class="breakdown-item">
+                            <div class="breakdown-header">
+                                <span>Elbow Angle</span>
+                                <span class="breakdown-score" id="elbow-avg">--°</span>
+                            </div>
+                            <div class="breakdown-bar">
+                                <div class="breakdown-fill" id="elbow-fill"></div>
+                            </div>
+                        </div>
+                        <div class="breakdown-item">
+                            <div class="breakdown-header">
+                                <span>Release Height</span>
+                                <span class="breakdown-score" id="release-avg">--°</span>
+                            </div>
+                            <div class="breakdown-bar">
+                                <div class="breakdown-fill" id="release-fill"></div>
+                            </div>
+                        </div>
+                        <div class="breakdown-item">
+                            <div class="breakdown-header">
+                                <span>Knee Bend</span>
+                                <span class="breakdown-score" id="knee-avg">--°</span>
+                            </div>
+                            <div class="breakdown-bar">
+                                <div class="breakdown-fill" id="knee-fill"></div>
+                            </div>
+                        </div>
+                        <div class="breakdown-item">
+                            <div class="breakdown-header">
+                                <span>Body Alignment</span>
+                                <span class="breakdown-score" id="alignment-avg">--</span>
+                            </div>
+                            <div class="breakdown-bar">
+                                <div class="breakdown-fill" id="alignment-fill"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Smart Insights -->
+                <div class="insights-card">
+                    <h3>💡 Smart Insights</h3>
+                    <div id="insights-container" class="insights-list">
+                        <p class="no-insights">Complete more sessions to get personalized insights!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- HISTORY VIEW -->
+        <div id="history-view" class="view-container">
+            <div class="history-container">
+                <div class="history-header">
+                    <h2>📚 Session History</h2>
+                    <button class="btn btn-danger" id="clear-history">Clear All History</button>
+                </div>
+
+                <div id="sessions-list" class="sessions-list">
+                    <div class="no-sessions">
+                        <p>No sessions recorded yet.</p>
+                        <p>Start a 10-shot session to begin tracking your progress!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MediaPipe Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+    
+    <!-- Chart.js for Progress Graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <!-- Main Application Scripts -->
+    <script src="storage.js"></script>
+    <script src="session.js"></script>
+    <script src="celebration.js"></script>
+    <script src="progress.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
