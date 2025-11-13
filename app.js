@@ -17,6 +17,7 @@ const statusText = document.getElementById('status-text');
 let pose;
 let camera;
 let isRunning = false;
+let isProcessingFrame = false;
 
 // Analysis data
 let frameCount = 0;
@@ -75,12 +76,20 @@ async function startCamera() {
         sessionBtn.disabled = false;
         stopBtn.disabled = false;
         isRunning = true;
+        isProcessingFrame = false;
         statusText.textContent = 'Analyzing...';
 
         camera = new Camera(video, {
             onFrame: async () => {
-                if (isRunning) {
-                    await pose.send({ image: video });
+                if (isRunning && !isProcessingFrame) {
+                    isProcessingFrame = true;
+                    try {
+                        await pose.send({ image: video });
+                    } catch (error) {
+                        console.error('Error processing frame:', error);
+                    } finally {
+                        isProcessingFrame = false;
+                    }
                 }
             },
             width: 1280,
@@ -88,7 +97,7 @@ async function startCamera() {
         });
 
         await camera.start();
-        
+
     } catch (error) {
         console.error('Error starting camera:', error);
         alert('Could not access camera. Please grant camera permissions and try again.');
@@ -101,20 +110,28 @@ async function startCamera() {
  */
 function stopCamera() {
     isRunning = false;
-    
+    isProcessingFrame = false;
+
     if (camera) {
         camera.stop();
     }
-    
+
+    // Properly stop all video tracks
+    if (video.srcObject) {
+        const tracks = video.srcObject.getTracks();
+        tracks.forEach(track => track.stop());
+        video.srcObject = null;
+    }
+
     if (SessionManager.isSessionActive) {
         SessionManager.cancelSession();
     }
-    
+
     startBtn.disabled = false;
     sessionBtn.disabled = true;
     stopBtn.disabled = true;
     statusText.textContent = 'Stopped';
-    
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 }
 
@@ -122,6 +139,11 @@ function stopCamera() {
  * Process pose detection results
  */
 function onPoseResults(results) {
+    // Safety check: ensure video is ready
+    if (!video.videoWidth || !video.videoHeight) {
+        return;
+    }
+
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
 
@@ -135,11 +157,11 @@ function onPoseResults(results) {
 
     drawPose(results.poseLandmarks);
     const formData = analyzeShootingForm(results.poseLandmarks);
-    
+
     if (SessionManager.isSessionActive) {
         handleAutoCapture(formData);
     }
-    
+
     frameCount++;
 }
 
@@ -537,6 +559,7 @@ function average(arr) {
  */
 function resetCamera() {
     isRunning = false;
+    isProcessingFrame = false;
     startBtn.disabled = false;
     sessionBtn.disabled = true;
     stopBtn.disabled = true;
