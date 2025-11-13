@@ -18,6 +18,7 @@ let pose;
 let camera;
 let isRunning = false;
 let isProcessingFrame = false;
+let isPoseReady = false;
 
 // Analysis data
 let frameCount = 0;
@@ -39,7 +40,8 @@ const CAPTURE_COOLDOWN = 3000;
 async function initializePose() {
     try {
         statusText.textContent = 'Loading AI Model...';
-        
+        isPoseReady = false;
+
         pose = new Pose({
             locateFile: (file) => {
                 return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
@@ -57,12 +59,17 @@ async function initializePose() {
 
         pose.onResults(onPoseResults);
 
+        // Wait a moment for pose to fully initialize
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        isPoseReady = true;
         statusText.textContent = 'Ready';
         loadingOverlay.classList.add('hidden');
-        
+
     } catch (error) {
         console.error('Error initializing pose:', error);
         statusText.textContent = 'Error loading model';
+        isPoseReady = false;
         alert('Failed to load AI model. Please refresh the page.');
     }
 }
@@ -72,6 +79,12 @@ async function initializePose() {
  */
 async function startCamera() {
     try {
+        // Ensure pose is ready before starting
+        if (!isPoseReady || !pose) {
+            alert('AI model is still loading. Please wait a moment and try again.');
+            return;
+        }
+
         startBtn.disabled = true;
         sessionBtn.disabled = false;
         stopBtn.disabled = false;
@@ -81,7 +94,7 @@ async function startCamera() {
 
         camera = new Camera(video, {
             onFrame: async () => {
-                if (isRunning && !isProcessingFrame) {
+                if (isRunning && !isProcessingFrame && isPoseReady && pose) {
                     isProcessingFrame = true;
                     try {
                         await pose.send({ image: video });
@@ -92,8 +105,8 @@ async function startCamera() {
                     }
                 }
             },
-            width: 1280,
-            height: 720
+            width: 640,
+            height: 480
         });
 
         await camera.start();
