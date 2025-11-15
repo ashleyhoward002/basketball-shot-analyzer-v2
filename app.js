@@ -1,6 +1,6 @@
 /**
  * Basketball Shot Form Analyzer v2.0 - Main Application
- * Real-time CONTINUOUS pose analysis with session tracking
+ * Real-time CONTINUOUS pose analysis with VOICE + VISUAL COACHING
  */
 
 // DOM Elements
@@ -30,6 +30,10 @@ let analysisData = {
 // Auto-capture timer for sessions
 let lastCaptureTime = 0;
 const CAPTURE_COOLDOWN = 3000;
+
+// Voice coaching
+let lastSpokenTip = '';
+let speechEnabled = true;
 
 /**
  * Initialize MediaPipe Pose
@@ -120,6 +124,15 @@ function stopCamera() {
     
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
+    // Clear on-screen coaching
+    const overlay = document.getElementById('onscreen-coaching');
+    if (overlay) overlay.remove();
+    
+    // Stop speech
+    if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+    }
+    
     console.log('⏸️ Camera stopped');
 }
 
@@ -127,11 +140,9 @@ function stopCamera() {
  * Process pose detection results - RUNS EVERY FRAME (30 FPS)
  */
 function onPoseResults(results) {
-    // Set canvas size to match video
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
 
-    // CRITICAL: Clear and redraw EVERY frame for continuous video
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
 
@@ -140,13 +151,9 @@ function onPoseResults(results) {
         return;
     }
 
-    // Draw skeleton overlay
     drawPose(results.poseLandmarks);
-    
-    // Analyze form
     const formData = analyzeShootingForm(results.poseLandmarks);
     
-    // Handle session auto-capture if active
     if (SessionManager.isSessionActive) {
         handleAutoCapture(formData);
     }
@@ -330,7 +337,7 @@ function analyzeShootingForm(landmarks) {
     updateStatusMessages(avgElbow, avgRelease, avgKnee, avgAlignment);
     drawAngleIndicator(rightShoulder, rightElbow, rightWrist, avgElbow);
     
-    // UPDATE LIVE COACHING
+    // UPDATE LIVE COACHING WITH VOICE + VISUAL
     updateLiveCoaching(avgElbow, avgRelease, avgKnee, avgAlignment, overallScore);
     
     return {
@@ -539,6 +546,204 @@ function resetCamera() {
     statusText.textContent = 'Ready';
 }
 /**
+ * Update live coaching tips based on current form
+ * NOW WITH VOICE + BIG ON-SCREEN DISPLAY
+ */
+function updateLiveCoaching(elbow, release, knee, alignment, overallScore) {
+    const priorityFix = document.getElementById('priority-fix');
+    const priorityTitle = document.getElementById('priority-title');
+    const priorityTip = document.getElementById('priority-tip');
+    const priorityIcon = document.querySelector('.priority-icon');
+    
+    const tipGood = document.getElementById('tip-good-text');
+    const tipWarning = document.getElementById('tip-warning-text');
+    const tipFocus = document.getElementById('tip-focus-text');
+    
+    // Determine priority issue
+    let priority = null;
+    let priorityScore = 100;
+    
+    // Check elbow
+    const elbowScore = scoreElbowAngle(elbow);
+    if (elbowScore < priorityScore) {
+        priorityScore = elbowScore;
+        if (elbow < 85) {
+            priority = {
+                icon: '💪',
+                title: 'RAISE YOUR ELBOW',
+                tip: `Your elbow is at ${Math.round(elbow)}° - aim for 85-95°. Lift your elbow up to shoulder height.`
+            };
+        } else if (elbow > 95) {
+            priority = {
+                icon: '⬇️',
+                title: 'LOWER YOUR ELBOW',
+                tip: `Your elbow is at ${Math.round(elbow)}° - aim for 85-95°. Bring your elbow down slightly.`
+            };
+        }
+    }
+    
+    // Check release
+    const releaseScore = scoreReleaseHeight(release);
+    if (releaseScore < priorityScore) {
+        priorityScore = releaseScore;
+        if (release < 45) {
+            priority = {
+                icon: '⬆️',
+                title: 'RELEASE HIGHER',
+                tip: `Release at ${Math.round(release)}° is too low. Shoot upward at 45-60° for better arc.`
+            };
+        } else if (release > 60) {
+            priority = {
+                icon: '📐',
+                title: 'FLATTEN YOUR ARC',
+                tip: `Release at ${Math.round(release)}° is too high. Aim for 45-60°.`
+            };
+        }
+    }
+    
+    // Check knees
+    const kneeScore = scoreKneeAngle(knee);
+    if (kneeScore < priorityScore) {
+        priorityScore = kneeScore;
+        if (knee > 130) {
+            priority = {
+                icon: '🦵',
+                title: 'BEND YOUR KNEES',
+                tip: `Knees at ${Math.round(knee)}° are too straight. Squat down to 100-130° for power!`
+            };
+        } else if (knee < 100) {
+            priority = {
+                icon: '⬆️',
+                title: 'STAND TALLER',
+                tip: `Knees at ${Math.round(knee)}° are too bent. Straighten up to 100-130°.`
+            };
+        }
+    }
+    
+    // Check alignment
+    if (alignment < 85 && alignment < priorityScore) {
+        priority = {
+            icon: '⚖️',
+            title: 'LEVEL YOUR SHOULDERS',
+            tip: 'Your shoulders are uneven. Keep them level and square to the basket.'
+        };
+    }
+    
+    // Update priority fix panel
+    if (priority) {
+        priorityIcon.textContent = priority.icon;
+        priorityTitle.textContent = priority.title;
+        priorityTip.textContent = priority.tip;
+        
+        if (priorityScore < 50) {
+            priorityFix.classList.add('critical');
+        } else {
+            priorityFix.classList.remove('critical');
+        }
+        
+        // SPEAK IT + SHOW ON SCREEN
+        speakCoachingTip(priority.title);
+        updateOnScreenCoaching(priority.title, priority.icon);
+        
+    } else {
+        priorityIcon.textContent = '🎯';
+        priorityTitle.textContent = 'EXCELLENT FORM!';
+        priorityTip.textContent = 'All metrics are in the optimal range. Keep this up!';
+        priorityFix.classList.remove('critical');
+        
+        // SPEAK IT + SHOW ON SCREEN
+        speakCoachingTip('EXCELLENT FORM!');
+        updateOnScreenCoaching('EXCELLENT FORM!', '🎯');
+    }
+    
+    // Update quick tips
+    if (overallScore >= 80) {
+        tipGood.textContent = `Overall form is excellent (${overallScore}/100)`;
+    } else if (elbowScore >= 80) {
+        tipGood.textContent = `Elbow angle is perfect at ${Math.round(elbow)}°`;
+    } else if (releaseScore >= 80) {
+        tipGood.textContent = `Release height is great at ${Math.round(release)}°`;
+    } else if (kneeScore >= 80) {
+        tipGood.textContent = `Knee bend is good at ${Math.round(knee)}°`;
+    } else if (alignment >= 90) {
+        tipGood.textContent = 'Shoulders are level and aligned';
+    } else {
+        tipGood.textContent = 'Keep practicing - form is developing!';
+    }
+    
+    if (elbowScore < 70 && elbowScore < releaseScore && elbowScore < kneeScore) {
+        tipWarning.textContent = `Watch elbow position (${Math.round(elbow)}° - target: 85-95°)`;
+    } else if (releaseScore < 70) {
+        tipWarning.textContent = `Work on release height (${Math.round(release)}° - target: 45-60°)`;
+    } else if (kneeScore < 70) {
+        tipWarning.textContent = `Focus on knee bend (${Math.round(knee)}° - target: 100-130°)`;
+    } else {
+        tipWarning.textContent = 'Minor adjustments needed - stay focused';
+    }
+    
+    if (overallScore < 60) {
+        tipFocus.textContent = 'Work on fundamentals slowly - quality over quantity';
+    } else if (overallScore < 80) {
+        tipFocus.textContent = 'Good progress! Focus on consistency';
+    } else {
+        tipFocus.textContent = 'Maintain this form - practice makes permanent!';
+    }
+}
+
+/**
+ * Text-to-speech for coaching tips
+ */
+function speakCoachingTip(title) {
+    if (!speechEnabled) return;
+    if (lastSpokenTip === title) return; // Don't repeat
+    
+    lastSpokenTip = title;
+    
+    try {
+        // Cancel any ongoing speech
+        if (window.speechSynthesis) {
+            window.speechSynthesis.cancel();
+        }
+        
+        const utterance = new SpeechSynthesisUtterance(title);
+        utterance.rate = 0.85; // Slightly slower for clarity
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
+        
+        window.speechSynthesis.speak(utterance);
+        
+        console.log('🔊 Speaking: ' + title);
+    } catch (error) {
+        console.log('Speech not supported:', error);
+    }
+}
+
+/**
+ * Update big on-screen coaching overlay
+ */
+function updateOnScreenCoaching(title, icon) {
+    let overlay = document.getElementById('onscreen-coaching');
+    
+    if (!overlay) {
+        // Create overlay if it doesn't exist
+        overlay = document.createElement('div');
+        overlay.id = 'onscreen-coaching';
+        overlay.className = 'onscreen-coaching';
+        document.querySelector('.video-wrapper').appendChild(overlay);
+    }
+    
+    overlay.innerHTML = `
+        <div class="onscreen-icon">${icon}</div>
+        <div class="onscreen-text">${title}</div>
+    `;
+    
+    // Make it pulse
+    overlay.style.animation = 'none';
+    setTimeout(() => {
+        overlay.style.animation = 'coaching-pulse 2s infinite';
+    }, 10);
+}
+/**
  * Update dashboard stats
  */
 function updateDashboard() {
@@ -676,145 +881,9 @@ function setupClearHistory() {
     }
 }
 
-/**
- * Update live coaching tips based on current form
- */
-function updateLiveCoaching(elbow, release, knee, alignment, overallScore) {
-    const priorityFix = document.getElementById('priority-fix');
-    const priorityTitle = document.getElementById('priority-title');
-    const priorityTip = document.getElementById('priority-tip');
-    const priorityIcon = document.querySelector('.priority-icon');
-    
-    const tipGood = document.getElementById('tip-good-text');
-    const tipWarning = document.getElementById('tip-warning-text');
-    const tipFocus = document.getElementById('tip-focus-text');
-    
-    // Determine priority issue
-    let priority = null;
-    let priorityScore = 100;
-    
-    // Check elbow
-    const elbowScore = scoreElbowAngle(elbow);
-    if (elbowScore < priorityScore) {
-        priorityScore = elbowScore;
-        if (elbow < 85) {
-            priority = {
-                icon: '💪',
-                title: 'RAISE YOUR ELBOW',
-                tip: `Your elbow is at ${Math.round(elbow)}° - aim for 85-95°. Lift your elbow up to shoulder height before you shoot.`
-            };
-        } else if (elbow > 95) {
-            priority = {
-                icon: '⬇️',
-                title: 'LOWER YOUR ELBOW',
-                tip: `Your elbow is at ${Math.round(elbow)}° - aim for 85-95°. Bring your elbow down slightly for more control.`
-            };
-        }
-    }
-    
-    // Check release
-    const releaseScore = scoreReleaseHeight(release);
-    if (releaseScore < priorityScore) {
-        priorityScore = releaseScore;
-        if (release < 45) {
-            priority = {
-                icon: '⬆️',
-                title: 'RELEASE HIGHER',
-                tip: `Release at ${Math.round(release)}° is too low. Shoot upward at 45-60° for better arc. Imagine shooting over a defender!`
-            };
-        } else if (release > 60) {
-            priority = {
-                icon: '📐',
-                title: 'FLATTEN YOUR ARC',
-                tip: `Release at ${Math.round(release)}° is too high. Aim for 45-60° for optimal trajectory.`
-            };
-        }
-    }
-    
-    // Check knees
-    const kneeScore = scoreKneeAngle(knee);
-    if (kneeScore < priorityScore) {
-        priorityScore = kneeScore;
-        if (knee > 130) {
-            priority = {
-                icon: '🦵',
-                title: 'BEND YOUR KNEES',
-                tip: `Knees at ${Math.round(knee)}° are too straight. Squat down to 100-130° to generate power from your legs!`
-            };
-        } else if (knee < 100) {
-            priority = {
-                icon: '⬆️',
-                title: 'STAND TALLER',
-                tip: `Knees at ${Math.round(knee)}° are too bent. Straighten up a bit to 100-130° for better balance.`
-            };
-        }
-    }
-    
-    // Check alignment
-    if (alignment < 85 && alignment < priorityScore) {
-        priority = {
-            icon: '⚖️',
-            title: 'LEVEL YOUR SHOULDERS',
-            tip: 'Your shoulders are uneven. Keep them level and square to the basket for consistent shots.'
-        };
-    }
-    
-    // Update priority fix
-    if (priority) {
-        priorityIcon.textContent = priority.icon;
-        priorityTitle.textContent = priority.title;
-        priorityTip.textContent = priority.tip;
-        
-        if (priorityScore < 50) {
-            priorityFix.classList.add('critical');
-        } else {
-            priorityFix.classList.remove('critical');
-        }
-    } else {
-        priorityIcon.textContent = '🎯';
-        priorityTitle.textContent = 'EXCELLENT FORM!';
-        priorityTip.textContent = 'All metrics are in the optimal range. Keep this up!';
-        priorityFix.classList.remove('critical');
-    }
-    
-    // Update quick tips
-    // Good tip
-    if (overallScore >= 80) {
-        tipGood.textContent = `Overall form is excellent (${overallScore}/100)`;
-    } else if (elbowScore >= 80) {
-        tipGood.textContent = `Elbow angle is perfect at ${Math.round(elbow)}°`;
-    } else if (releaseScore >= 80) {
-        tipGood.textContent = `Release height is great at ${Math.round(release)}°`;
-    } else if (kneeScore >= 80) {
-        tipGood.textContent = `Knee bend is good at ${Math.round(knee)}°`;
-    } else if (alignment >= 90) {
-        tipGood.textContent = 'Shoulders are level and aligned';
-    } else {
-        tipGood.textContent = 'Keep practicing - form is developing!';
-    }
-    
-    // Warning tip
-    if (elbowScore < 70 && elbowScore < releaseScore && elbowScore < kneeScore) {
-        tipWarning.textContent = `Watch elbow position (${Math.round(elbow)}° - target: 85-95°)`;
-    } else if (releaseScore < 70) {
-        tipWarning.textContent = `Work on release height (${Math.round(release)}° - target: 45-60°)`;
-    } else if (kneeScore < 70) {
-        tipWarning.textContent = `Focus on knee bend (${Math.round(knee)}° - target: 100-130°)`;
-    } else {
-        tipWarning.textContent = 'Minor adjustments needed - stay focused';
-    }
-    
-    // Focus tip
-    if (overallScore < 60) {
-        tipFocus.textContent = 'Work on fundamentals slowly - quality over quantity';
-    } else if (overallScore < 80) {
-        tipFocus.textContent = 'Good progress! Focus on consistency';
-    } else {
-        tipFocus.textContent = 'Maintain this form - practice makes permanent!';
-    }
-}
 // Event Listeners
 startBtn.addEventListener('click', startCamera);
+
 sessionBtn.addEventListener('click', () => {
     if (!isRunning) {
         alert('Please start the camera first!');
@@ -822,11 +891,32 @@ sessionBtn.addEventListener('click', () => {
     }
     SessionManager.startSession();
 });
+
 stopBtn.addEventListener('click', stopCamera);
+
+// Voice toggle button
+const voiceToggle = document.getElementById('voice-toggle');
+if (voiceToggle) {
+    voiceToggle.addEventListener('click', () => {
+        speechEnabled = !speechEnabled;
+        voiceToggle.textContent = speechEnabled ? '🔊' : '🔇';
+        voiceToggle.classList.toggle('muted');
+        
+        if (speechEnabled) {
+            console.log('🔊 Voice coaching: ON');
+        } else {
+            console.log('🔇 Voice coaching: OFF');
+            // Cancel any ongoing speech
+            if (window.speechSynthesis) {
+                window.speechSynthesis.cancel();
+            }
+        }
+    });
+}
 
 // Initialize on page load
 window.addEventListener('load', () => {
-    console.log('🏀 Shot Analyzer v2.0 initializing...');
+    console.log('🏀 Shot Analyzer v2.0 - Voice + Visual Coaching Mode');
     initializePose();
     setupNavigation();
     setupClearHistory();
@@ -836,4 +926,4 @@ window.addEventListener('load', () => {
 // Expose updateDashboard globally for session manager
 window.updateDashboard = updateDashboard;
 
-console.log('✅ App.js loaded successfully - CONTINUOUS VIDEO MODE');
+console.log('✅ App.js loaded - VOICE + VISUAL COACHING ENABLED');
