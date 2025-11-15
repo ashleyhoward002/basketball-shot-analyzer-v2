@@ -1,389 +1,258 @@
 /**
- * Storage Manager
- * Handles all LocalStorage operations for sessions, progress, and achievements
+ * Session Manager
+ * Handles 10-shot session tracking and analysis
  */
 
-const StorageManager = {
-    // Storage keys
-    KEYS: {
-        SESSIONS: 'shotAnalyzer_sessions',
-        ACHIEVEMENTS: 'shotAnalyzer_achievements',
-        STATS: 'shotAnalyzer_stats'
-    },
-
+const SessionManager = {
+    isSessionActive: false,
+    currentShot: 0,
+    maxShots: 10,
+    shots: [],
+    sessionStartTime: null,
+    
     /**
-     * Save a completed session
+     * Start a new 10-shot session
      */
-    saveSession(sessionData) {
-        const sessions = this.getAllSessions();
+    startSession() {
+        this.isSessionActive = true;
+        this.currentShot = 0;
+        this.shots = [];
+        this.sessionStartTime = Date.now();
         
-        const session = {
-            id: Date.now(),
-            date: new Date().toISOString(),
-            shots: sessionData.shots,
-            averageScore: sessionData.averageScore,
-            bestShot: sessionData.bestShot,
-            worstShot: sessionData.worstShot,
-            metrics: sessionData.metrics
+        const counter = document.getElementById('session-counter');
+        counter.classList.remove('hidden');
+        
+        this.updateSessionUI();
+        
+        document.getElementById('session-btn').disabled = true;
+        
+        console.log('✅ 10-shot session started');
+    },
+    
+    /**
+     * Capture current shot data
+     */
+    captureShot(formData) {
+        if (!this.isSessionActive || this.currentShot >= this.maxShots) {
+            return false;
+        }
+        
+        this.currentShot++;
+        
+        const shotData = {
+            shotNumber: this.currentShot,
+            timestamp: Date.now(),
+            overallScore: formData.overallScore,
+            elbowAngle: formData.elbowAngle,
+            releaseHeight: formData.releaseHeight,
+            kneeAngle: formData.kneeAngle,
+            alignment: formData.alignment,
+            elbowScore: formData.elbowScore,
+            releaseScore: formData.releaseScore,
+            kneeScore: formData.kneeScore,
+            alignmentScore: formData.alignmentScore
         };
         
-        sessions.unshift(session);
+        this.shots.push(shotData);
         
-        if (sessions.length > 50) {
-            sessions.length = 50;
+        this.updateSessionUI();
+        
+        this.showShotScore(shotData.overallScore);
+        
+        if (this.currentShot >= this.maxShots) {
+            setTimeout(() => this.completeSession(), 1500);
         }
         
-        localStorage.setItem(this.KEYS.SESSIONS, JSON.stringify(sessions));
-        this.updateStats(session);
-        this.checkAchievements(session, sessions);
+        console.log(`📸 Shot ${this.currentShot}/10 captured - Score: ${Math.round(shotData.overallScore)}`);
         
-        return session;
+        return true;
     },
-
+    
     /**
-     * Get all saved sessions
+     * Update session UI
      */
-    getAllSessions() {
-        const data = localStorage.getItem(this.KEYS.SESSIONS);
-        return data ? JSON.parse(data) : [];
+    updateSessionUI() {
+        document.getElementById('current-shot').textContent = this.currentShot;
     },
-
+    
     /**
-     * Get sessions for a specific time period
+     * Show shot score feedback
      */
-    getSessionsByPeriod(period) {
-        const sessions = this.getAllSessions();
-        const now = new Date();
+    showShotScore(score) {
+        const display = document.getElementById('shot-score-display');
+        display.textContent = Math.round(score);
         
-        return sessions.filter(session => {
-            const sessionDate = new Date(session.date);
-            const diffDays = Math.floor((now - sessionDate) / (1000 * 60 * 60 * 24));
-            
-            switch(period) {
-                case 'week':
-                    return diffDays <= 7;
-                case 'month':
-                    return diffDays <= 30;
-                case 'all':
-                default:
-                    return true;
-            }
-        });
+        display.style.animation = 'none';
+        setTimeout(() => {
+            display.style.animation = 'pulse 0.5s ease';
+        }, 10);
     },
-
+    
     /**
-     * Update overall stats
+     * Complete the session and show summary
      */
-    updateStats(newSession) {
-        const stats = this.getStats();
-        const sessions = this.getAllSessions();
+    completeSession() {
+        this.isSessionActive = false;
         
-        stats.totalSessions = sessions.length;
-        stats.lastSessionDate = newSession.date;
+        const counter = document.getElementById('session-counter');
+        counter.classList.add('hidden');
         
-        const totalScore = sessions.reduce((sum, s) => sum + s.averageScore, 0);
-        stats.averageScore = Math.round(totalScore / sessions.length);
+        const stats = this.calculateSessionStats();
         
-        stats.bestScore = Math.max(...sessions.map(s => s.averageScore));
+        const savedSession = StorageManager.saveSession(stats);
         
-        if (sessions.length >= 10) {
-            const recent = sessions.slice(0, 5);
-            const previous = sessions.slice(5, 10);
-            const recentAvg = recent.reduce((sum, s) => sum + s.averageScore, 0) / 5;
-            const previousAvg = previous.reduce((sum, s) => sum + s.averageScore, 0) / 5;
-            stats.improvement = Math.round(recentAvg - previousAvg);
-        } else {
-            stats.improvement = 0;
+        const newAchievements = StorageManager.checkAchievements(savedSession, StorageManager.getAllSessions());
+        
+        this.showSessionSummary(stats, newAchievements);
+        
+        document.getElementById('session-btn').disabled = false;
+        
+        if (window.updateDashboard) {
+            window.updateDashboard();
         }
         
-        stats.streak = this.calculateStreak(sessions);
-        
-        localStorage.setItem(this.KEYS.STATS, JSON.stringify(stats));
-        return stats;
+        console.log('✅ Session complete:', stats);
     },
-
+    
     /**
-     * Get overall stats
+     * Calculate session statistics
      */
-    getStats() {
-        const data = localStorage.getItem(this.KEYS.STATS);
-        return data ? JSON.parse(data) : {
-            totalSessions: 0,
-            averageScore: 0,
-            bestScore: 0,
-            improvement: 0,
-            streak: 0,
-            lastSessionDate: null
+    calculateSessionStats() {
+        const scores = this.shots.map(s => s.overallScore);
+        const elbowAngles = this.shots.map(s => s.elbowAngle);
+        const releaseHeights = this.shots.map(s => s.releaseHeight);
+        const kneeAngles = this.shots.map(s => s.kneeAngle);
+        const alignments = this.shots.map(s => s.alignment);
+        
+        const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
+        const bestShot = this.shots.reduce((best, shot) => 
+            shot.overallScore > best.overallScore ? shot : best
+        );
+        const worstShot = this.shots.reduce((worst, shot) => 
+            shot.overallScore < worst.overallScore ? shot : worst
+        );
+        
+        return {
+            shots: this.shots,
+            averageScore: Math.round(avgScore),
+            bestShot: {
+                number: bestShot.shotNumber,
+                score: Math.round(bestShot.overallScore)
+            },
+            worstShot: {
+                number: worstShot.shotNumber,
+                score: Math.round(worstShot.overallScore)
+            },
+            metrics: {
+                avgElbow: Math.round(elbowAngles.reduce((a, b) => a + b, 0) / elbowAngles.length),
+                avgRelease: Math.round(releaseHeights.reduce((a, b) => a + b, 0) / releaseHeights.length),
+                avgKnee: Math.round(kneeAngles.reduce((a, b) => a + b, 0) / kneeAngles.length),
+                avgAlignment: Math.round(alignments.reduce((a, b) => a + b, 0) / alignments.length)
+            },
+            consistency: this.calculateConsistency(scores),
+            duration: Date.now() - this.sessionStartTime,
+            tips: this.generateTips(this.shots)
         };
     },
-
+    
     /**
-     * Calculate practice streak in days
+     * Calculate consistency score
      */
-    calculateStreak(sessions) {
-        if (sessions.length === 0) return 0;
+    calculateConsistency(scores) {
+        const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
+        const variance = scores.reduce((sum, score) => sum + Math.pow(score - mean, 2), 0) / scores.length;
+        const stdDev = Math.sqrt(variance);
         
-        let streak = 0;
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
-        for (let i = 0; i < 30; i++) {
-            const checkDate = new Date(today);
-            checkDate.setDate(checkDate.getDate() - i);
-            
-            const hasSession = sessions.some(session => {
-                const sessionDate = new Date(session.date);
-                sessionDate.setHours(0, 0, 0, 0);
-                return sessionDate.getTime() === checkDate.getTime();
-            });
-            
-            if (hasSession) {
-                streak++;
-            } else if (i > 0) {
-                break;
-            }
-        }
-        
-        return streak;
+        return Math.max(0, 100 - (stdDev * 5));
     },
-
+    
     /**
-     * Check and award achievements
+     * Generate personalized tips
      */
-    checkAchievements(newSession, allSessions) {
-        const achievements = this.getAchievements();
-        const newAchievements = [];
+    generateTips(shots) {
+        const tips = [];
         
-        if (allSessions.length === 1 && !achievements.includes('first_session')) {
-            newAchievements.push({
-                id: 'first_session',
-                icon: '🥉',
-                title: 'First Session Complete',
-                description: 'You completed your first 10-shot session!'
+        const elbowAngles = shots.map(s => s.elbowAngle);
+        const elbowVariance = this.calculateVariance(elbowAngles);
+        const avgElbow = elbowAngles.reduce((a, b) => a + b, 0) / elbowAngles.length;
+        
+        if (elbowVariance > 50) {
+            tips.push({
+                icon: '💪',
+                title: 'Elbow Consistency',
+                text: `Your elbow angle varies by ${Math.round(Math.sqrt(elbowVariance))}°. Practice slow-motion form to build muscle memory.`
             });
-            achievements.push('first_session');
         }
         
-        if (allSessions.length === 5 && !achievements.includes('five_sessions')) {
-            newAchievements.push({
-                id: 'five_sessions',
-                icon: '📊',
-                title: '5 Sessions Complete',
-                description: 'You\'ve completed 5 practice sessions!'
+        if (avgElbow < 85) {
+            tips.push({
+                icon: '↑',
+                title: 'Raise Your Elbow',
+                text: 'Your elbow tends to drop. Focus on keeping it at 90° during your release.'
             });
-            achievements.push('five_sessions');
+        } else if (avgElbow > 95) {
+            tips.push({
+                icon: '↓',
+                title: 'Lower Your Elbow',
+                text: 'Your elbow is too high. Aim for a comfortable 85-95° angle.'
+            });
         }
         
-        if (newSession.averageScore >= 90 && !achievements.includes('first_90')) {
-            newAchievements.push({
-                id: 'first_90',
+        const releases = shots.map(s => s.releaseHeight);
+        const avgRelease = releases.reduce((a, b) => a + b, 0) / releases.length;
+        
+        if (avgRelease < 45) {
+            tips.push({
+                icon: '🎯',
+                title: 'Release Height',
+                text: 'Release your shot higher for better arc and accuracy.'
+            });
+        }
+        
+        const knees = shots.map(s => s.kneeAngle);
+        const avgKnee = knees.reduce((a, b) => a + b, 0) / knees.length;
+        
+        if (avgKnee > 130) {
+            tips.push({
+                icon: '💪',
+                title: 'Leg Power',
+                text: 'Bend your knees more to generate power from your legs, not just your arms.'
+            });
+        }
+        
+        const earlyScores = shots.slice(0, 5).map(s => s.overallScore);
+        const lateScores = shots.slice(5).map(s => s.overallScore);
+        const earlyAvg = earlyScores.reduce((a, b) => a + b, 0) / earlyScores.length;
+        const lateAvg = lateScores.reduce((a, b) => a + b, 0) / lateScores.length;
+        
+        if (lateAvg < earlyAvg - 10) {
+            tips.push({
+                icon: '⏸️',
+                title: 'Fatigue Management',
+                text: 'Your form declines in later shots. Take breaks between sets to maintain quality.'
+            });
+        }
+        
+        const bestShots = shots.filter(s => s.overallScore >= 90);
+        if (bestShots.length > 0) {
+            tips.push({
                 icon: '⭐',
-                title: 'Elite Form',
-                description: 'You achieved a 90+ form score!'
+                title: 'Great Work!',
+                text: `You had ${bestShots.length} excellent shot(s) with 90+ scores. You know what good form feels like!`
             });
-            achievements.push('first_90');
         }
         
-        if (newSession.averageScore >= 95 && !achievements.includes('perfect_form')) {
-            newAchievements.push({
-                id: 'perfect_form',
-                icon: '💎',
-                title: 'Perfect Form',
-                description: 'You achieved a 95+ form score!'
+        if (tips.length === 0) {
+            tips.push({
+                icon: '👍',
+                title: 'Keep Practicing',
+                text: 'Your form is developing well. Keep practicing consistently to see improvement!'
             });
-            achievements.push('perfect_form');
         }
         
-        const streak = this.calculateStreak(allSessions);
-        if (streak >= 3 && !achievements.includes('three_day_streak')) {
-            newAchievements.push({
-                id: 'three_day_streak',
-                icon: '🔥',
-                title: 'Hot Streak',
-                description: 'You practiced 3 days in a row!'
-            });
-            achievements.push('three_day_streak');
-        }
-        
-        if (streak >= 7 && !achievements.includes('seven_day_streak')) {
-            newAchievements.push({
-                id: 'seven_day_streak',
-                icon: '🔥🔥',
-                title: 'Week Warrior',
-                description: 'You practiced 7 days in a row!'
-            });
-            achievements.push('seven_day_streak');
-        }
-        
-        const stats = this.getStats();
-        if (stats.improvement >= 20 && !achievements.includes('huge_improvement')) {
-            newAchievements.push({
-                id: 'huge_improvement',
-                icon: '📈',
-                title: 'Massive Improvement',
-                description: 'You improved by 20+ points!'
-            });
-            achievements.push('huge_improvement');
-        }
-        
-        if (allSessions.length === 10 && !achievements.includes('ten_sessions')) {
-            newAchievements.push({
-                id: 'ten_sessions',
-                icon: '🏆',
-                title: 'Dedicated Athlete',
-                description: 'You\'ve completed 10 practice sessions!'
-            });
-            achievements.push('ten_sessions');
-        }
-        
-        localStorage.setItem(this.KEYS.ACHIEVEMENTS, JSON.stringify(achievements));
-        
-        return newAchievements;
+        return tips;
     },
-
     /**
-     * Get all achievements
-     */
-    getAchievements() {
-        const data = localStorage.getItem(this.KEYS.ACHIEVEMENTS);
-        return data ? JSON.parse(data) : [];
-    },
-
-    /**
-     * Get achievement details
-     */
-    getAchievementDetails() {
-        const unlocked = this.getAchievements();
-        const allAchievements = [
-            { id: 'first_session', icon: '🥉', title: 'First Session Complete', description: 'Complete your first 10-shot session' },
-            { id: 'five_sessions', icon: '📊', title: '5 Sessions Complete', description: 'Complete 5 practice sessions' },
-            { id: 'ten_sessions', icon: '🏆', title: 'Dedicated Athlete', description: 'Complete 10 practice sessions' },
-            { id: 'first_90', icon: '⭐', title: 'Elite Form', description: 'Achieve a 90+ form score' },
-            { id: 'perfect_form', icon: '💎', title: 'Perfect Form', description: 'Achieve a 95+ form score' },
-            { id: 'three_day_streak', icon: '🔥', title: 'Hot Streak', description: 'Practice 3 days in a row' },
-            { id: 'seven_day_streak', icon: '🔥🔥', title: 'Week Warrior', description: 'Practice 7 days in a row' },
-            { id: 'huge_improvement', icon: '📈', title: 'Massive Improvement', description: 'Improve by 20+ points' }
-        ];
-        
-        return allAchievements.map(ach => ({
-            ...ach,
-            unlocked: unlocked.includes(ach.id)
-        }));
-    },
-
-    /**
-     * Generate smart insights
-     */
-    generateInsights(sessions) {
-        if (sessions.length < 3) {
-            return [];
-        }
-        
-        const insights = [];
-        
-        const recentScores = sessions.slice(0, 5).map(s => s.averageScore);
-        const olderScores = sessions.slice(5, 10).map(s => s.averageScore);
-        
-        if (olderScores.length > 0) {
-            const recentAvg = recentScores.reduce((a, b) => a + b, 0) / recentScores.length;
-            const olderAvg = olderScores.reduce((a, b) => a + b, 0) / olderScores.length;
-            
-            if (recentAvg > olderAvg + 5) {
-                insights.push({
-                    type: 'positive',
-                    text: `🚀 Great progress! Your average score improved by ${Math.round(recentAvg - olderAvg)} points in recent sessions. Keep up the excellent work!`
-                });
-            } else if (recentAvg < olderAvg - 5) {
-                insights.push({
-                    type: 'warning',
-                    text: `⚠️ Your recent scores are lower than before. Consider taking a break or reviewing form fundamentals.`
-                });
-            }
-        }
-        
-        const scores = sessions.slice(0, 10).map(s => s.averageScore);
-        const variance = this.calculateVariance(scores);
-        
-        if (variance < 25) {
-            insights.push({
-                type: 'positive',
-                text: `✓ Excellent consistency! Your form is stable with minimal variation between sessions.`
-            });
-        } else if (variance > 100) {
-            insights.push({
-                type: 'tip',
-                text: `💡 Your scores vary significantly. Focus on building muscle memory with slow, deliberate practice.`
-            });
-        }
-        
-        const streak = this.calculateStreak(sessions);
-        if (streak >= 5) {
-            insights.push({
-                type: 'positive',
-                text: `🔥 Amazing ${streak}-day practice streak! Consistency is key to improvement.`
-            });
-        }
-        
-        return insights;
-    },
-
-    /**
-     * Calculate variance
-     */
-    calculateVariance(numbers) {
-        const mean = numbers.reduce((a, b) => a + b, 0) / numbers.length;
-        const squaredDiffs = numbers.map(n => Math.pow(n - mean, 2));
-        return squaredDiffs.reduce((a, b) => a + b, 0) / numbers.length;
-    },
-
-    /**
-     * Clear all data
-     */
-    clearAllData() {
-        if (confirm('Are you sure you want to delete all session history? This cannot be undone.')) {
-            localStorage.removeItem(this.KEYS.SESSIONS);
-            localStorage.removeItem(this.KEYS.ACHIEVEMENTS);
-            localStorage.removeItem(this.KEYS.STATS);
-            return true;
-        }
-        return false;
-    },
-
-    /**
-     * Get today's session count
-     */
-    getTodaySessionCount() {
-        const sessions = this.getAllSessions();
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
-        return sessions.filter(session => {
-            const sessionDate = new Date(session.date);
-            sessionDate.setHours(0, 0, 0, 0);
-            return sessionDate.getTime() === today.getTime();
-        }).length;
-    },
-
-    /**
-     * Get today's best score
-     */
-    getTodayBestScore() {
-        const sessions = this.getAllSessions();
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
-        const todaySessions = sessions.filter(session => {
-            const sessionDate = new Date(session.date);
-            sessionDate.setHours(0, 0, 0, 0);
-            return sessionDate.getTime() === today.getTime();
-        });
-        
-        if (todaySessions.length === 0) return null;
-        
-        return Math.max(...todaySessions.map(s => s.averageScore));
-    }
-};
-/**
      * Show session summary modal/overlay
      */
     showSessionSummary(stats, newAchievements) {
@@ -479,6 +348,8 @@ const StorageManager = {
                 
                 document.getElementById('session-counter').classList.add('hidden');
                 document.getElementById('session-btn').disabled = false;
+                
+                console.log('❌ Session cancelled');
             }
         }
     }
@@ -674,3 +545,5 @@ const summaryStyles = `
 `;
 
 document.head.insertAdjacentHTML('beforeend', summaryStyles);
+
+console.log('✅ SessionManager loaded successfully');
