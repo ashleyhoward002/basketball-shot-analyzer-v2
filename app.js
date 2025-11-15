@@ -1,6 +1,6 @@
 /**
  * Basketball Shot Form Analyzer v2.0 - Main Application
- * Real-time pose analysis with session tracking and progress monitoring
+ * Real-time CONTINUOUS pose analysis with session tracking
  */
 
 // DOM Elements
@@ -28,7 +28,6 @@ let analysisData = {
 };
 
 // Auto-capture timer for sessions
-let autoCaptureTimer = null;
 let lastCaptureTime = 0;
 const CAPTURE_COOLDOWN = 3000;
 
@@ -59,6 +58,8 @@ async function initializePose() {
         statusText.textContent = 'Ready';
         loadingOverlay.classList.add('hidden');
         
+        console.log('✅ Pose detection initialized');
+        
     } catch (error) {
         console.error('Error initializing pose:', error);
         statusText.textContent = 'Error loading model';
@@ -67,7 +68,7 @@ async function initializePose() {
 }
 
 /**
- * Start camera and pose detection
+ * Start camera and pose detection - CONTINUOUS MODE
  */
 async function startCamera() {
     try {
@@ -79,7 +80,7 @@ async function startCamera() {
 
         camera = new Camera(video, {
             onFrame: async () => {
-                if (isRunning) {
+                if (isRunning && pose) {
                     await pose.send({ image: video });
                 }
             },
@@ -88,6 +89,8 @@ async function startCamera() {
         });
 
         await camera.start();
+        
+        console.log('✅ Camera started - CONTINUOUS MODE');
         
     } catch (error) {
         console.error('Error starting camera:', error);
@@ -116,15 +119,19 @@ function stopCamera() {
     statusText.textContent = 'Stopped';
     
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    console.log('⏸️ Camera stopped');
 }
 
 /**
- * Process pose detection results
+ * Process pose detection results - RUNS EVERY FRAME (30 FPS)
  */
 function onPoseResults(results) {
+    // Set canvas size to match video
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
 
+    // CRITICAL: Clear and redraw EVERY frame for continuous video
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
 
@@ -133,9 +140,13 @@ function onPoseResults(results) {
         return;
     }
 
+    // Draw skeleton overlay
     drawPose(results.poseLandmarks);
+    
+    // Analyze form
     const formData = analyzeShootingForm(results.poseLandmarks);
     
+    // Handle session auto-capture if active
     if (SessionManager.isSessionActive) {
         handleAutoCapture(formData);
     }
@@ -165,6 +176,7 @@ function handleAutoCapture(formData) {
     if (captured) {
         lastCaptureTime = now;
         flashScreen();
+        playBeep();
     }
 }
 
@@ -179,20 +191,45 @@ function flashScreen() {
     flash.style.width = '100%';
     flash.style.height = '100%';
     flash.style.background = 'white';
-    flash.style.opacity = '0.7';
+    flash.style.opacity = '0.8';
     flash.style.zIndex = '1000';
     flash.style.pointerEvents = 'none';
     document.body.appendChild(flash);
     
     setTimeout(() => {
-        flash.style.transition = 'opacity 0.3s ease';
+        flash.style.transition = 'opacity 0.2s ease';
         flash.style.opacity = '0';
-        setTimeout(() => flash.remove(), 300);
+        setTimeout(() => flash.remove(), 200);
     }, 100);
 }
 
 /**
- * Draw pose skeleton
+ * Play beep sound when shot captured
+ */
+function playBeep() {
+    try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.frequency.value = 800;
+        oscillator.type = 'sine';
+        
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.1);
+    } catch (error) {
+        console.log('Audio not supported');
+    }
+}
+
+/**
+ * Draw pose skeleton - CALLED EVERY FRAME
  */
 function drawPose(landmarks) {
     const connections = [
@@ -235,9 +272,8 @@ function drawPose(landmarks) {
         }
     });
 }
-
 /**
- * Analyze shooting form
+ * Analyze shooting form - UPDATES EVERY FRAME
  */
 function analyzeShootingForm(landmarks) {
     const rightShoulder = landmarks[12];
@@ -292,7 +328,6 @@ function analyzeShootingForm(landmarks) {
     updateProgressBars(elbowScore, releaseScore, kneeScore, alignmentScoreValue);
     updateFeedback(overallScore, elbowScore, releaseScore, kneeScore, alignmentScoreValue);
     updateStatusMessages(avgElbow, avgRelease, avgKnee, avgAlignment);
-
     drawAngleIndicator(rightShoulder, rightElbow, rightWrist, avgElbow);
     
     return {
@@ -307,9 +342,7 @@ function analyzeShootingForm(landmarks) {
         alignmentScore: alignmentScoreValue
     };
 }
-/**
- * Calculate angle between three points
- */
+
 function calculateAngle(point1, point2, point3) {
     const radians = Math.atan2(point3.y - point2.y, point3.x - point2.x) -
                     Math.atan2(point1.y - point2.y, point1.x - point2.x);
@@ -322,9 +355,6 @@ function calculateAngle(point1, point2, point3) {
     return angle;
 }
 
-/**
- * Calculate release angle
- */
 function calculateReleaseAngle(shoulder, wrist) {
     const deltaY = shoulder.y - wrist.y;
     const deltaX = Math.abs(shoulder.x - wrist.x);
@@ -332,18 +362,12 @@ function calculateReleaseAngle(shoulder, wrist) {
     return Math.max(0, angle);
 }
 
-/**
- * Calculate body alignment
- */
 function calculateAlignment(leftShoulder, rightShoulder) {
     const shoulderDiff = Math.abs(leftShoulder.y - rightShoulder.y);
     const alignmentScore = Math.max(0, 100 - (shoulderDiff * 1000));
     return alignmentScore;
 }
 
-/**
- * Score elbow angle
- */
 function scoreElbowAngle(angle) {
     const optimal = 90;
     const tolerance = 10;
@@ -356,9 +380,6 @@ function scoreElbowAngle(angle) {
     }
 }
 
-/**
- * Score release height
- */
 function scoreReleaseHeight(angle) {
     if (angle >= 45 && angle <= 60) {
         return 100;
@@ -369,9 +390,6 @@ function scoreReleaseHeight(angle) {
     }
 }
 
-/**
- * Score knee bend
- */
 function scoreKneeAngle(angle) {
     if (angle >= 100 && angle <= 130) {
         return 100;
@@ -382,9 +400,6 @@ function scoreKneeAngle(angle) {
     }
 }
 
-/**
- * Draw angle indicator
- */
 function drawAngleIndicator(point1, vertex, point3, angle) {
     const x = vertex.x * canvas.width;
     const y = vertex.y * canvas.height;
@@ -400,9 +415,6 @@ function drawAngleIndicator(point1, vertex, point3, angle) {
     ctx.fillText(Math.round(angle) + '°', x + 35, y - 10);
 }
 
-/**
- * Update metric display
- */
 function updateMetricDisplay(elementId, value) {
     const element = document.getElementById(elementId);
     if (element) {
@@ -410,9 +422,6 @@ function updateMetricDisplay(elementId, value) {
     }
 }
 
-/**
- * Update score ring
- */
 function updateScoreRing(score) {
     const ring = document.getElementById('score-ring');
     const circumference = 2 * Math.PI * 52;
@@ -429,9 +438,6 @@ function updateScoreRing(score) {
     }
 }
 
-/**
- * Update progress bars
- */
 function updateProgressBars(elbowScore, releaseScore, kneeScore, alignmentScore) {
     updateBar('elbow-bar', elbowScore);
     updateBar('release-bar', releaseScore);
@@ -439,11 +445,10 @@ function updateProgressBars(elbowScore, releaseScore, kneeScore, alignmentScore)
     updateBar('alignment-bar', alignmentScore);
 }
 
-/**
- * Update individual bar
- */
 function updateBar(barId, score) {
     const bar = document.getElementById(barId);
+    if (!bar) return;
+    
     bar.style.width = score + '%';
     
     bar.classList.remove('good', 'warning', 'poor');
@@ -457,9 +462,6 @@ function updateBar(barId, score) {
     }
 }
 
-/**
- * Update feedback text
- */
 function updateFeedback(overall, elbow, release, knee, alignment) {
     const feedback = document.getElementById('form-feedback');
     
@@ -474,9 +476,6 @@ function updateFeedback(overall, elbow, release, knee, alignment) {
     }
 }
 
-/**
- * Update status messages
- */
 function updateStatusMessages(elbow, release, knee, alignment) {
     const elbowStatus = document.getElementById('elbow-status');
     if (elbow >= 85 && elbow <= 95) {
@@ -524,17 +523,11 @@ function updateStatusMessages(elbow, release, knee, alignment) {
     }
 }
 
-/**
- * Calculate average
- */
 function average(arr) {
     if (arr.length === 0) return 0;
     return arr.reduce((a, b) => a + b, 0) / arr.length;
 }
 
-/**
- * Reset camera
- */
 function resetCamera() {
     isRunning = false;
     startBtn.disabled = false;
@@ -542,7 +535,6 @@ function resetCamera() {
     stopBtn.disabled = true;
     statusText.textContent = 'Ready';
 }
-
 /**
  * Update dashboard stats
  */
@@ -582,6 +574,7 @@ function updateRecentAchievements() {
         </div>
     `).join('');
 }
+
 /**
  * Setup view navigation
  */
@@ -666,15 +659,18 @@ function updateHistoryView() {
  * Setup clear history button
  */
 function setupClearHistory() {
-    document.getElementById('clear-history').addEventListener('click', () => {
-        if (StorageManager.clearAllData()) {
-            updateHistoryView();
-            updateDashboard();
-            if (window.ProgressManager) {
-                ProgressManager.updateProgress();
+    const clearBtn = document.getElementById('clear-history');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            if (StorageManager.clearAllData()) {
+                updateHistoryView();
+                updateDashboard();
+                if (window.ProgressManager) {
+                    ProgressManager.updateProgress();
+                }
             }
-        }
-    });
+        });
+    }
 }
 
 // Event Listeners
@@ -690,6 +686,7 @@ stopBtn.addEventListener('click', stopCamera);
 
 // Initialize on page load
 window.addEventListener('load', () => {
+    console.log('🏀 Shot Analyzer v2.0 initializing...');
     initializePose();
     setupNavigation();
     setupClearHistory();
@@ -698,3 +695,5 @@ window.addEventListener('load', () => {
 
 // Expose updateDashboard globally for session manager
 window.updateDashboard = updateDashboard;
+
+console.log('✅ App.js loaded successfully - CONTINUOUS VIDEO MODE');
