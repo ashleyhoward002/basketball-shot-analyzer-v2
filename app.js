@@ -330,6 +330,9 @@ function analyzeShootingForm(landmarks) {
     updateStatusMessages(avgElbow, avgRelease, avgKnee, avgAlignment);
     drawAngleIndicator(rightShoulder, rightElbow, rightWrist, avgElbow);
     
+    // UPDATE LIVE COACHING
+    updateLiveCoaching(avgElbow, avgRelease, avgKnee, avgAlignment, overallScore);
+    
     return {
         overallScore,
         elbowAngle: avgElbow,
@@ -673,6 +676,143 @@ function setupClearHistory() {
     }
 }
 
+/**
+ * Update live coaching tips based on current form
+ */
+function updateLiveCoaching(elbow, release, knee, alignment, overallScore) {
+    const priorityFix = document.getElementById('priority-fix');
+    const priorityTitle = document.getElementById('priority-title');
+    const priorityTip = document.getElementById('priority-tip');
+    const priorityIcon = document.querySelector('.priority-icon');
+    
+    const tipGood = document.getElementById('tip-good-text');
+    const tipWarning = document.getElementById('tip-warning-text');
+    const tipFocus = document.getElementById('tip-focus-text');
+    
+    // Determine priority issue
+    let priority = null;
+    let priorityScore = 100;
+    
+    // Check elbow
+    const elbowScore = scoreElbowAngle(elbow);
+    if (elbowScore < priorityScore) {
+        priorityScore = elbowScore;
+        if (elbow < 85) {
+            priority = {
+                icon: '💪',
+                title: 'RAISE YOUR ELBOW',
+                tip: `Your elbow is at ${Math.round(elbow)}° - aim for 85-95°. Lift your elbow up to shoulder height before you shoot.`
+            };
+        } else if (elbow > 95) {
+            priority = {
+                icon: '⬇️',
+                title: 'LOWER YOUR ELBOW',
+                tip: `Your elbow is at ${Math.round(elbow)}° - aim for 85-95°. Bring your elbow down slightly for more control.`
+            };
+        }
+    }
+    
+    // Check release
+    const releaseScore = scoreReleaseHeight(release);
+    if (releaseScore < priorityScore) {
+        priorityScore = releaseScore;
+        if (release < 45) {
+            priority = {
+                icon: '⬆️',
+                title: 'RELEASE HIGHER',
+                tip: `Release at ${Math.round(release)}° is too low. Shoot upward at 45-60° for better arc. Imagine shooting over a defender!`
+            };
+        } else if (release > 60) {
+            priority = {
+                icon: '📐',
+                title: 'FLATTEN YOUR ARC',
+                tip: `Release at ${Math.round(release)}° is too high. Aim for 45-60° for optimal trajectory.`
+            };
+        }
+    }
+    
+    // Check knees
+    const kneeScore = scoreKneeAngle(knee);
+    if (kneeScore < priorityScore) {
+        priorityScore = kneeScore;
+        if (knee > 130) {
+            priority = {
+                icon: '🦵',
+                title: 'BEND YOUR KNEES',
+                tip: `Knees at ${Math.round(knee)}° are too straight. Squat down to 100-130° to generate power from your legs!`
+            };
+        } else if (knee < 100) {
+            priority = {
+                icon: '⬆️',
+                title: 'STAND TALLER',
+                tip: `Knees at ${Math.round(knee)}° are too bent. Straighten up a bit to 100-130° for better balance.`
+            };
+        }
+    }
+    
+    // Check alignment
+    if (alignment < 85 && alignment < priorityScore) {
+        priority = {
+            icon: '⚖️',
+            title: 'LEVEL YOUR SHOULDERS',
+            tip: 'Your shoulders are uneven. Keep them level and square to the basket for consistent shots.'
+        };
+    }
+    
+    // Update priority fix
+    if (priority) {
+        priorityIcon.textContent = priority.icon;
+        priorityTitle.textContent = priority.title;
+        priorityTip.textContent = priority.tip;
+        
+        if (priorityScore < 50) {
+            priorityFix.classList.add('critical');
+        } else {
+            priorityFix.classList.remove('critical');
+        }
+    } else {
+        priorityIcon.textContent = '🎯';
+        priorityTitle.textContent = 'EXCELLENT FORM!';
+        priorityTip.textContent = 'All metrics are in the optimal range. Keep this up!';
+        priorityFix.classList.remove('critical');
+    }
+    
+    // Update quick tips
+    // Good tip
+    if (overallScore >= 80) {
+        tipGood.textContent = `Overall form is excellent (${overallScore}/100)`;
+    } else if (elbowScore >= 80) {
+        tipGood.textContent = `Elbow angle is perfect at ${Math.round(elbow)}°`;
+    } else if (releaseScore >= 80) {
+        tipGood.textContent = `Release height is great at ${Math.round(release)}°`;
+    } else if (kneeScore >= 80) {
+        tipGood.textContent = `Knee bend is good at ${Math.round(knee)}°`;
+    } else if (alignment >= 90) {
+        tipGood.textContent = 'Shoulders are level and aligned';
+    } else {
+        tipGood.textContent = 'Keep practicing - form is developing!';
+    }
+    
+    // Warning tip
+    if (elbowScore < 70 && elbowScore < releaseScore && elbowScore < kneeScore) {
+        tipWarning.textContent = `Watch elbow position (${Math.round(elbow)}° - target: 85-95°)`;
+    } else if (releaseScore < 70) {
+        tipWarning.textContent = `Work on release height (${Math.round(release)}° - target: 45-60°)`;
+    } else if (kneeScore < 70) {
+        tipWarning.textContent = `Focus on knee bend (${Math.round(knee)}° - target: 100-130°)`;
+    } else {
+        tipWarning.textContent = 'Minor adjustments needed - stay focused';
+    }
+    
+    // Focus tip
+    if (overallScore < 60) {
+        tipFocus.textContent = 'Work on fundamentals slowly - quality over quantity';
+    } else if (overallScore < 80) {
+        tipFocus.textContent = 'Good progress! Focus on consistency';
+    } else {
+        tipFocus.textContent = 'Maintain this form - practice makes permanent!';
+    }
+}
 // Event Listeners
 startBtn.addEventListener('click', startCamera);
 sessionBtn.addEventListener('click', () => {
